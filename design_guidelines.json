@@ -1,0 +1,157 @@
+{
+  "app_name": "Taal Tarang Garba",
+  "personality": "6 Glass / Luxe DARK (Festive Fusion)",
+  "personality_one_liner": "A vibrant, premium, and festive registration experience that feels like a glowing Garba night.",
+  "color": {
+    "surface": "#0B132B",
+    "onSurface": "#FDF8F5",
+    "surfaceSecondary": "#1C2541",
+    "onSurfaceSecondary": "#FDF8F5",
+    "surfaceTertiary": "#293241",
+    "onSurfaceTertiary": "#FFFFFF",
+    "surfaceInverse": "#FFD000",
+    "onSurfaceInverse": "#0B132B",
+    "brand": "#F72585",
+    "onBrand": "#FFFFFF",
+    "brandPrimary": "#F72585",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#FF9E00",
+    "onBrandSecondary": "#0B132B",
+    "brandTertiary": "#FFD000",
+    "onBrandTertiary": "#0B132B",
+    "success": "#06D6A0",
+    "onSuccess": "#0B132B",
+    "warning": "#FF9E00",
+    "onWarning": "#0B132B",
+    "error": "#E63946",
+    "onError": "#FFFFFF",
+    "info": "#4CC9F0",
+    "onInfo": "#0B132B",
+    "border": "#293241",
+    "borderStrong": "#FFD000",
+    "divider": "#1C2541",
+    "muted": "#9FA6B2"
+  },
+  "typography": {
+    "displayFontFamily": "Cormorant Garamond",
+    "textFontFamily": "Geist",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24
+    }
+  },
+  "spacing": {
+    "rule": "Generous vertical breathing room for a premium feel. Do not cramp content. Use spacing tokens for all padding/margin.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": "3",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use frosted glass overlays on hero cards with imagery underneath.",
+      "Apply glass to sticky headers and bottom tab bars.",
+      "Pair blur with a translucent tinted base (≥75% opacity of surface in dark mode) to ensure foreground text is readable."
+    ],
+    "dont's": [
+      "Do not blur form fields or body text regions.",
+      "Do not rely solely on blur for contrast; always use a tinted underlay."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Home",
+      "purpose": "Showcase the festive event and provide event details (Date, Venue, Contacts) with a clear call to action.",
+      "states": {
+        "loading": "Centered spinner",
+        "empty": "N/A - static event info",
+        "error": "Failed to load event details. Retry."
+      },
+      "layout": "Hero image (Garba dancers) taking up top 40% of screen with a vertical gradient scrim (transparent to surface). Large display typography for event name. Glass-frosted cards layered over the bottom of the hero image for event date, venue, and contacts. Sticky primary CTA 'Register Now' at the bottom."
+    },
+    {
+      "name": "Registration",
+      "purpose": "Collect student registration data securely.",
+      "states": {
+        "loading": "Centered spinner during submission",
+        "empty": "N/A - Form fields",
+        "error": "Form validation errors displayed below respective fields."
+      },
+      "layout": "Single-column scrollable form. Fields styled cleanly with borders. 'Type' uses a segmented control. 'Upload Photo' uses a tactile dashed-border area. Sticky 'Submit Registration' button at the bottom using KeyboardAvoidingView."
+    },
+    {
+      "name": "My Passes",
+      "purpose": "Verify OTP and display the student's digital Garba pass.",
+      "states": {
+        "loading": "Spinner verifying OTP",
+        "empty": "Enter OTP screen or 'No pass found'. Illustration of a lantern or empty pass slot.",
+        "error": "Invalid OTP. Please try again."
+      },
+      "layout": "Initial state: Centered OTP input card. Verified state: A beautiful, textured premium pass card using the gold texture image and frosted glass. Displays student photo (fallback to initials if missing), Name, Admission No., Type, and Status badge (Pending Approval / Approved)."
+    },
+    {
+      "name": "Admin Dashboard",
+      "purpose": "Allow admins to manage student registrations.",
+      "states": {
+        "loading": "Centered spinner",
+        "empty": "No students registered yet.",
+        "error": "Failed to load students. Retry button."
+      },
+      "layout": "Initial state: Admin login screen (Username/Password). Logged-in state: A list of registered students. Each list row contains student info, status badge, and 'Approve' / 'Delete' action buttons. Uses a glass header for the Admin title."
+    }
+  ],
+  "images": {
+    "hero_banner": {
+      "url": "https://images.unsplash.com/photo-1645264090488-a019de493023?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwxfHxnYXJiYSUyMGRhbmNlcnMlMjBmZXN0aXZhbCUyMG5pZ2h0fGVufDB8fHx8MTc5MDgzODYyM3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "Two women dressed in traditional Indian garb dancing Garba"
+    },
+    "pass_texture": {
+      "url": "https://images.unsplash.com/photo-1733935156769-fe0c2a600d6c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Njd8MHwxfHNlYXJjaHwyfHxnb2xkJTIwcGF0dGVybiUyMHRleHR1cmUlMjBkYXJrfGVufDB8fHx8MTc5MDgzODYyM3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "Textured gold leaf surface for pass background"
+    },
+    "decorative_lights": {
+      "url": "https://images.unsplash.com/photo-1592318072094-2694c98adb73?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHwyfHxzdHJpbmclMjBsaWdodHMlMjBsYW50ZXJucyUyMG5pZ2h0fGVufDB8fHx8MTc5MDgzODYyM3ww&ixlib=rb-4.1.0&q=85",
+      "alt": "String lights and lanterns for festive atmosphere"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Implement the 'Glass / Luxe DARK' personality with the festive custom color palette.",
+    "Bypass the 'No Navy/Blue' rule ONLY for the specific 'surface' and 'surfaceSecondary' hex codes provided in this JSON, as the user explicitly requested a Dark Navy theme with vibrant accents.",
+    "Use a gradient scrim over the 'hero_banner' image on the Home screen to ensure text readability.",
+    "Mock the OTP for 'My Passes' screen to accept '123456'.",
+    "Mock the Admin login credentials to accept 'admin' and 'admin123'.",
+    "Ensure 'Student Registration' captures a photo from the mobile device. Set 'Date of Registration' to auto-populate the current date.",
+    "In 'My Passes', prominently show the 'Pending Approval' status badge using the 'warning' color if the student is not yet approved.",
+    "In 'Admin Dashboard', include explicit inline actions to Approve or Delete an unapproved student.",
+    "Do NOT use emojis anywhere in the system UI.",
+    "Ensure all interactive elements have haptic feedback."
+  ]
+}

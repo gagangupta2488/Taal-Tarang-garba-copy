@@ -1,0 +1,89 @@
+const BASE_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+export const API_URL = `${BASE_URL}/api`;
+
+export type Student = {
+  id: string;
+  admission_no: string;
+  date_of_registration: string;
+  full_name: string;
+  date_of_birth: string;
+  father_name: string;
+  type: string;
+  address: string;
+  student_class: string;
+  phone_no: string;
+  whatsapp_no: string;
+  email: string;
+  photo_base64?: string | null;
+  approved: boolean;
+  created_at: string;
+};
+
+async function parseError(res: Response): Promise<string> {
+  try {
+    const data = await res.json();
+    if (typeof data?.detail === "string") return data.detail;
+    return "Request failed";
+  } catch {
+    return "Request failed";
+  }
+}
+
+export async function registerStudent(payload: Omit<Student, "id" | "date_of_registration" | "approved" | "created_at">) {
+  const res = await fetch(`${API_URL}/students/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as Student;
+}
+
+export async function sendOtp(phone_no: string) {
+  const res = await fetch(`${API_URL}/students/send-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone_no }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { message: string; mock_otp_hint?: string };
+}
+
+export async function verifyOtp(phone_no: string, otp: string) {
+  const res = await fetch(`${API_URL}/students/verify-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phone_no, otp }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as Student;
+}
+
+export async function adminLogin(username: string, password: string) {
+  const res = await fetch(`${API_URL}/admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { token: string; username: string };
+}
+
+export async function adminListStudents() {
+  const res = await fetch(`${API_URL}/admin/students`);
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as Student[];
+}
+
+export async function adminApproveStudent(id: string) {
+  const res = await fetch(`${API_URL}/admin/students/${id}/approve`, { method: "POST" });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as Student;
+}
+
+export async function adminDeleteStudent(id: string) {
+  const res = await fetch(`${API_URL}/admin/students/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { message: string };
+}
