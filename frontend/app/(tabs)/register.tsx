@@ -11,6 +11,7 @@ import MaterialIcon from "@react-native-vector-icons/material-design-icons";
 import { useRouter } from "expo-router";
 import { colors, spacing, radius } from "@/src/theme";
 import { registerStudent } from "@/src/api";
+import { saveMyPass } from "@/src/passStorage";
 
 type FormState = {
   admission_no: string;
@@ -112,15 +113,16 @@ export default function RegisterScreen() {
     setSubmitting(true);
     setFeedback(null);
     try {
-      await registerStudent({ ...form, photo_base64: photo });
+      const student = await registerStudent({ ...form, photo_base64: photo });
+      await saveMyPass(student);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setFeedback({
         type: "success",
-        msg: "Registered! Awaiting admin approval. Use your phone number in My Pass tab.",
+        msg: "Registered successfully! Opening your pass…",
       });
       setForm(INITIAL);
       setPhoto(null);
-      setTimeout(() => router.push("/(tabs)/passes"), 1500);
+      setTimeout(() => router.push("/(tabs)/passes"), 1200);
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setFeedback({ type: "error", msg: e?.message ?? "Registration failed" });
@@ -179,7 +181,7 @@ export default function RegisterScreen() {
             label="Admission No"
             value={form.admission_no}
             onChangeText={(v) => update("admission_no", v)}
-            placeholder="e.g. 2026-GAR-001"
+            placeholder="Admission No from college list"
             autoCapitalize="characters"
             testID="field-admission-no"
           />

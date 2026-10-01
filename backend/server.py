@@ -23,8 +23,7 @@ api_router = APIRouter(prefix="/api")
 
 # ---------- Config ----------
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
-MOCK_OTP = "123456"
+ADMIN_PASSWORD = "Kacc@8131"
 
 
 # ---------- Models ----------
@@ -65,13 +64,17 @@ class AdminLogin(BaseModel):
     password: str
 
 
-class OTPRequest(BaseModel):
-    phone_no: str
+class AdmissionListAdd(BaseModel):
+    admission_nos: List[str]
 
 
-class OTPVerify(BaseModel):
-    phone_no: str
-    otp: str
+class AdmissionEntry(BaseModel):
+    admission_no: str
+    created_at: str
+
+
+def normalize_admission(value: str) -> str:
+    return value.strip().upper()
 
 
 # ---------- Routes ----------
@@ -82,13 +85,24 @@ async def root():
 
 @api_router.post("/students/register", response_model=Student)
 async def register_student(payload: StudentCreate):
-    # Prevent duplicate admission numbers
-    existing = await db.students.find_one({"admission_no": payload.admission_no}, {"_id": 0})
+    admission_no = normalize_admission(payload.admission_no)
+    if not admission_no:
+        raise HTTPException(status_code=400, detail="Admission number is required")
+
+    allowed = await db.allowed_admissions.find_one({"admission_no": admission_no}, {"_id": 0})
+    if not allowed:
+        raise HTTPException(
+            status_code=403,
+            detail="Admission number not found in college list. Please contact the admin.",
+        )
+
+    existing = await db.students.find_one({"admission_no": admission_no}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="Admission number already registered")
 
     student = Student(
-        admission_no=payload.admission_no,
+        admission_no=admission_no,
+        approved=True,
         date_of_registration=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         full_name=payload.full_name,
         date_of_birth=payload.date_of_birth,
@@ -106,22 +120,11 @@ async def register_student(payload: StudentCreate):
     return student
 
 
-@api_router.post("/students/send-otp")
-async def send_otp(payload: OTPRequest):
-    # Mock: always returns success. OTP is 123456
-    student = await db.students.find_one({"phone_no": payload.phone_no}, {"_id": 0})
+@api_router.get("/students/{student_id}", response_model=Student)
+async def get_student(student_id: str):
+    student = await db.students.find_one({"id": student_id}, {"_id": 0})
     if not student:
-        raise HTTPException(status_code=404, detail="No registration found for this mobile number")
-    return {"message": "OTP sent successfully", "mock_otp_hint": "Use 123456 for demo"}
-
-
-@api_router.post("/students/verify-otp", response_model=Student)
-async def verify_otp(payload: OTPVerify):
-    if payload.otp != MOCK_OTP:
-        raise HTTPException(status_code=401, detail="Invalid OTP")
-    student = await db.students.find_one({"phone_no": payload.phone_no}, {"_id": 0})
-    if not student:
-        raise HTTPException(status_code=404, detail="No registration found for this mobile number")
+        raise HTTPException(status_code=404, detail="Registration not found")
     return Student(**student)
 
 
@@ -132,23 +135,49 @@ async def admin_login(payload: AdminLogin):
     return {"token": "admin-session-token", "username": ADMIN_USERNAME}
 
 
+@api_router.get("/admin/admissions", response_model=List[AdmissionEntry])
+async def admin_list_admissions():
+    rows = await db.allowed_admissions.find({}, {"_id": 0}).sort("admission_no", 1).to_list(5000)
+    return [AdmissionEntry(**r) for r in rows]
+
+
+@api_router.post("/admin/admissions")
+async def admin_add_admissions(payload: AdmissionListAdd):
+    cleaned = []
+    seen = set()
+    for raw in payload.admission_nos:
+        value = normalize_admission(raw)
+        if value and value not in seen:
+            seen.add(value)
+            cleaned.append(value)
+    if not cleaned:
+        raise HTTPException(status_code=400, detail="No valid admission numbers provided")
+
+    existing_rows = await db.allowed_admissions.find(
+        {"admission_no": {"$in": cleaned}}, {"_id": 0, "admission_no": 1}
+    ).to_list(5000)
+    existing = {r["admission_no"] for r in existing_rows}
+    new_values = [v for v in cleaned if v not in existing]
+    if new_values:
+        now = datetime.now(timezone.utc).isoformat()
+        await db.allowed_admissions.insert_many(
+            [{"admission_no": v, "created_at": now} for v in new_values]
+        )
+    return {"added": len(new_values), "skipped": len(cleaned) - len(new_values)}
+
+
+@api_router.delete("/admin/admissions/{admission_no}")
+async def admin_delete_admission(admission_no: str):
+    result = await db.allowed_admissions.delete_one({"admission_no": normalize_admission(admission_no)})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Admission number not found")
+    return {"message": "Admission number removed"}
+
+
 @api_router.get("/admin/students", response_model=List[Student])
 async def admin_list_students():
     students = await db.students.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [Student(**s) for s in students]
-
-
-@api_router.post("/admin/students/{student_id}/approve", response_model=Student)
-async def admin_approve_student(student_id: str):
-    result = await db.students.find_one_and_update(
-        {"id": student_id},
-        {"$set": {"approved": True}},
-        return_document=True,
-        projection={"_id": 0},
-    )
-    if not result:
-        raise HTTPException(status_code=404, detail="Student not found")
-    return Student(**result)
 
 
 @api_router.delete("/admin/students/{student_id}")

@@ -10,10 +10,11 @@ import MaterialIcon from "@react-native-vector-icons/material-design-icons";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, radius } from "@/src/theme";
 import {
-  adminLogin, adminListStudents, adminApproveStudent, adminDeleteStudent, Student,
+  adminLogin, adminListStudents, adminDeleteStudent, Student,
+  adminListAdmissions, adminAddAdmissions, adminDeleteAdmission, AdmissionEntry,
 } from "@/src/api";
 
-type FilterKey = "all" | "pending" | "approved";
+type Section = "students" | "admissions";
 
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
@@ -23,12 +24,16 @@ export default function AdminScreen() {
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
+  const [section, setSection] = useState<Section>("students");
   const [students, setStudents] = useState<Student[]>([]);
+  const [admissions, setAdmissions] = useState<AdmissionEntry[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [filter, setFilter] = useState<FilterKey>("all");
   const [actionId, setActionId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+
+  const [admissionInput, setAdmissionInput] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const flashToast = (msg: string) => {
     setToast(msg);
@@ -42,7 +47,7 @@ export default function AdminScreen() {
       await adminLogin(username.trim(), password);
       setAuthed(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await loadStudents();
+      await loadAll();
     } catch (e: any) {
       setLoginError(e?.message ?? "Login failed");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -51,13 +56,14 @@ export default function AdminScreen() {
     }
   };
 
-  const loadStudents = async () => {
+  const loadAll = async () => {
     setListLoading(true);
     try {
-      const list = await adminListStudents();
+      const [list, adm] = await Promise.all([adminListStudents(), adminListAdmissions()]);
       setStudents(list);
+      setAdmissions(adm);
     } catch (e: any) {
-      flashToast(e?.message ?? "Failed to load students");
+      flashToast(e?.message ?? "Failed to load data");
     } finally {
       setListLoading(false);
     }
@@ -65,23 +71,9 @@ export default function AdminScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (authed) loadStudents();
+      if (authed) loadAll();
     }, [authed]),
   );
-
-  const onApprove = async (s: Student) => {
-    setActionId(s.id);
-    try {
-      await adminApproveStudent(s.id);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      flashToast(`Approved ${s.full_name}`);
-      await loadStudents();
-    } catch (e: any) {
-      flashToast(e?.message ?? "Approval failed");
-    } finally {
-      setActionId(null);
-    }
-  };
 
   const onDelete = async (s: Student) => {
     setActionId(s.id);
@@ -89,7 +81,7 @@ export default function AdminScreen() {
       await adminDeleteStudent(s.id);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       flashToast(`Deleted ${s.full_name}`);
-      await loadStudents();
+      await loadAll();
     } catch (e: any) {
       flashToast(e?.message ?? "Delete failed");
     } finally {
@@ -97,22 +89,51 @@ export default function AdminScreen() {
     }
   };
 
+  const onAddAdmissions = async () => {
+    const values = admissionInput.split(/[\n,;\s]+/).map((v) => v.trim()).filter(Boolean);
+    if (values.length === 0) {
+      flashToast("Enter at least one admission number");
+      return;
+    }
+    setAdding(true);
+    try {
+      const res = await adminAddAdmissions(values);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      flashToast(`Added ${res.added}${res.skipped ? ` · ${res.skipped} already existed` : ""}`);
+      setAdmissionInput("");
+      await loadAll();
+    } catch (e: any) {
+      flashToast(e?.message ?? "Failed to add");
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const onDeleteAdmission = async (a: AdmissionEntry) => {
+    setActionId(a.admission_no);
+    try {
+      await adminDeleteAdmission(a.admission_no);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      flashToast(`Removed ${a.admission_no}`);
+      await loadAll();
+    } catch (e: any) {
+      flashToast(e?.message ?? "Remove failed");
+    } finally {
+      setActionId(null);
+    }
+  };
+
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadStudents();
+    await loadAll();
     setRefreshing(false);
   };
 
-  const filtered = students.filter((s) => {
-    if (filter === "pending") return !s.approved;
-    if (filter === "approved") return s.approved;
-    return true;
-  });
-
+  const registeredSet = new Set(students.map((s) => s.admission_no));
   const stats = {
-    total: students.length,
-    approved: students.filter((s) => s.approved).length,
-    pending: students.filter((s) => !s.approved).length,
+    students: students.length,
+    admissions: admissions.length,
+    unregistered: admissions.filter((a) => !registeredSet.has(a.admission_no)).length,
   };
 
   if (!authed) {
@@ -181,10 +202,10 @@ export default function AdminScreen() {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View>
             <Text style={styles.headerTitle}>Admin Dashboard</Text>
-            <Text style={styles.headerSub}>Approve & manage registrations</Text>
+            <Text style={styles.headerSub}>Manage admission list & registrations</Text>
           </View>
           <Pressable
-            onPress={() => { setAuthed(false); setUsername(""); setPassword(""); setStudents([]); }}
+            onPress={() => { setAuthed(false); setUsername(""); setPassword(""); setStudents([]); setAdmissions([]); }}
             style={styles.logoutBtn}
             testID="admin-logout-btn"
           >
@@ -192,22 +213,27 @@ export default function AdminScreen() {
           </Pressable>
         </View>
         <View style={styles.statsRow}>
-          <StatBox label="Total" value={stats.total} color={colors.brandTertiary} testID="stat-total" />
-          <StatBox label="Pending" value={stats.pending} color={colors.warning} testID="stat-pending" />
-          <StatBox label="Approved" value={stats.approved} color={colors.success} testID="stat-approved" />
+          <StatBox label="Registered" value={stats.students} color={colors.success} testID="stat-students" />
+          <StatBox label="Admission Nos" value={stats.admissions} color={colors.brandTertiary} testID="stat-admissions" />
+          <StatBox label="Not Yet Reg." value={stats.unregistered} color={colors.warning} testID="stat-unregistered" />
         </View>
         <View style={styles.filterRow}>
-          {(["all", "pending", "approved"] as FilterKey[]).map((k) => {
-            const active = filter === k;
+          {(["students", "admissions"] as Section[]).map((k) => {
+            const active = section === k;
             return (
               <Pressable
                 key={k}
-                onPress={() => { Haptics.selectionAsync(); setFilter(k); }}
+                onPress={() => { Haptics.selectionAsync(); setSection(k); }}
                 style={[styles.filterChip, active && styles.filterChipActive]}
-                testID={`filter-${k}`}
+                testID={`section-${k}`}
               >
+                <MaterialIcon
+                  name={k === "students" ? "account-group" : "format-list-numbered"}
+                  size={14}
+                  color={active ? colors.onBrandPrimary : colors.muted}
+                />
                 <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                  {k[0].toUpperCase() + k.slice(1)}
+                  {k === "students" ? "Registered Students" : "Admission No List"}
                 </Text>
               </Pressable>
             );
@@ -215,8 +241,10 @@ export default function AdminScreen() {
         </View>
       </View>
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md }}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brandTertiary} />
         }
@@ -224,13 +252,77 @@ export default function AdminScreen() {
         {listLoading && !refreshing && (
           <ActivityIndicator color={colors.brandTertiary} style={{ marginTop: spacing.xl }} />
         )}
-        {!listLoading && filtered.length === 0 && (
+
+        {section === "admissions" && (
+          <>
+            <View style={styles.addCard} testID="add-admission-card">
+              <Text style={styles.addTitle}>Add Admission Numbers</Text>
+              <Text style={styles.addSub}>
+                Paste one or many numbers — separated by comma, space or new line. Only these students can register.
+              </Text>
+              <TextInput
+                value={admissionInput}
+                onChangeText={setAdmissionInput}
+                placeholder={"e.g. 2026001, 2026002\n2026003"}
+                placeholderTextColor={colors.muted}
+                autoCapitalize="characters"
+                multiline
+                style={[styles.input, { height: 96, textAlignVertical: "top" }]}
+                testID="admission-input"
+              />
+              <Pressable onPress={onAddAdmissions} disabled={adding} style={styles.cta} testID="add-admission-btn">
+                {adding ? (
+                  <ActivityIndicator color={colors.onBrandPrimary} />
+                ) : (
+                  <Text style={styles.ctaText}>Add to List</Text>
+                )}
+              </Pressable>
+            </View>
+
+            {!listLoading && admissions.length === 0 && (
+              <View style={styles.emptyBox} testID="admissions-empty">
+                <MaterialIcon name="format-list-bulleted" size={32} color={colors.muted} />
+                <Text style={styles.emptyText}>No admission numbers added yet</Text>
+              </View>
+            )}
+            {admissions.map((a) => {
+              const registered = registeredSet.has(a.admission_no);
+              return (
+                <View key={a.admission_no} style={styles.admRow} testID={`admission-row-${a.admission_no}`}>
+                  <MaterialIcon
+                    name={registered ? "account-check" : "account-clock-outline"}
+                    size={20}
+                    color={registered ? colors.success : colors.muted}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.admNo}>{a.admission_no}</Text>
+                    <Text style={styles.rowMeta}>{registered ? "Registered" : "Not registered yet"}</Text>
+                  </View>
+                  <Pressable
+                    disabled={actionId === a.admission_no}
+                    onPress={() => onDeleteAdmission(a)}
+                    style={styles.iconBtn}
+                    testID={`delete-admission-${a.admission_no}`}
+                  >
+                    {actionId === a.admission_no ? (
+                      <ActivityIndicator size="small" color={colors.error} />
+                    ) : (
+                      <MaterialIcon name="trash-can-outline" size={18} color={colors.error} />
+                    )}
+                  </Pressable>
+                </View>
+              );
+            })}
+          </>
+        )}
+
+        {section === "students" && !listLoading && students.length === 0 && (
           <View style={styles.emptyBox} testID="admin-empty">
             <MaterialIcon name="account-off" size={32} color={colors.muted} />
-            <Text style={styles.emptyText}>No students in this view</Text>
+            <Text style={styles.emptyText}>No students registered yet</Text>
           </View>
         )}
-        {filtered.map((s) => (
+        {section === "students" && students.map((s) => (
           <View key={s.id} style={styles.row} testID={`student-row-${s.id}`}>
             <View style={styles.rowAvatar}>
               {s.photo_base64 ? (
@@ -242,53 +334,32 @@ export default function AdminScreen() {
               )}
             </View>
             <View style={{ flex: 1 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Text style={styles.rowName}>{s.full_name}</Text>
-                <View
-                  style={[
-                    styles.miniBadge,
-                    { backgroundColor: s.approved ? colors.success : colors.warning },
-                  ]}
-                >
-                  <Text style={{ color: s.approved ? colors.onSuccess : colors.onWarning, fontSize: 10, fontWeight: "700" }}>
-                    {s.approved ? "APPROVED" : "PENDING"}
-                  </Text>
-                </View>
-              </View>
+              <Text style={styles.rowName}>{s.full_name}</Text>
               <Text style={styles.rowMeta}>Adm: {s.admission_no} · {s.student_class}</Text>
               <Text style={styles.rowMeta}>+91 {s.phone_no} · {s.type}</Text>
+              <Text style={styles.rowMeta}>Registered {s.date_of_registration}</Text>
               <View style={styles.rowActions}>
-                {!s.approved && (
-                  <Pressable
-                    disabled={actionId === s.id}
-                    onPress={() => onApprove(s)}
-                    style={[styles.actionBtn, { backgroundColor: colors.success }]}
-                    testID={`approve-${s.id}`}
-                  >
-                    {actionId === s.id ? (
-                      <ActivityIndicator size="small" color={colors.onSuccess} />
-                    ) : (
-                      <>
-                        <MaterialIcon name="check-bold" size={14} color={colors.onSuccess} />
-                        <Text style={[styles.actionText, { color: colors.onSuccess }]}>Approve</Text>
-                      </>
-                    )}
-                  </Pressable>
-                )}
                 <Pressable
                   disabled={actionId === s.id}
                   onPress={() => onDelete(s)}
                   style={[styles.actionBtn, { backgroundColor: colors.error }]}
                   testID={`delete-${s.id}`}
                 >
-                  <MaterialIcon name="trash-can-outline" size={14} color={colors.onError} />
-                  <Text style={[styles.actionText, { color: colors.onError }]}>Delete</Text>
+                  {actionId === s.id ? (
+                    <ActivityIndicator size="small" color={colors.onError} />
+                  ) : (
+                    <>
+                      <MaterialIcon name="trash-can-outline" size={14} color={colors.onError} />
+                      <Text style={[styles.actionText, { color: colors.onError }]}>Delete</Text>
+                    </>
+                  )}
                 </Pressable>
               </View>
             </View>
           </View>
         ))}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {toast && (
         <View style={[styles.toast, { bottom: insets.bottom + 72 }]} testID="admin-toast">
@@ -339,15 +410,17 @@ const styles = StyleSheet.create({
   statLabel: { color: colors.muted, fontSize: 11, marginTop: 2 },
   filterRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   filterChip: {
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
     paddingHorizontal: spacing.md,
-    height: 36,
+    height: 40,
     borderRadius: radius.pill,
     backgroundColor: colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0,
   },
   filterChipActive: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
   filterChipText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
@@ -417,7 +490,6 @@ const styles = StyleSheet.create({
   rowAvatarInit: { color: colors.brandTertiary, fontSize: 16, fontWeight: "800" },
   rowName: { color: colors.onSurface, fontSize: 15, fontWeight: "700" },
   rowMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
-  miniBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.pill },
   rowActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.sm, flexWrap: "wrap" },
   actionBtn: {
     flexDirection: "row",
@@ -428,6 +500,33 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   actionText: { fontSize: 12, fontWeight: "700" },
+
+  addCard: {
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    gap: spacing.sm,
+  },
+  addTitle: { color: colors.onSurface, fontSize: 16, fontWeight: "800" },
+  addSub: { color: colors.muted, fontSize: 12, lineHeight: 17 },
+  admRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: colors.surfaceSecondary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  admNo: { color: colors.onSurface, fontSize: 15, fontWeight: "700", letterSpacing: 0.5 },
+  iconBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: "center", justifyContent: "center",
+  },
 
   emptyBox: {
     backgroundColor: colors.surfaceSecondary,

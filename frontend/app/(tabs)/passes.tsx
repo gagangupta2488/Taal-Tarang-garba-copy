@@ -1,169 +1,96 @@
-import { useState } from "react";
-import {
-  View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator,
-  KeyboardAvoidingView, Platform, ScrollView,
-} from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, RefreshControl } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter, useIsFocused } from "expo-router";
 import MaterialIcon from "@react-native-vector-icons/material-design-icons";
-import * as Haptics from "expo-haptics";
 import { colors, spacing, radius } from "@/src/theme";
-import { sendOtp, verifyOtp, Student } from "@/src/api";
-
-type Step = "phone" | "otp" | "pass";
+import { getStudent, Student } from "@/src/api";
+import { loadMyPass, saveMyPass, clearMyPass } from "@/src/passStorage";
 
 export default function PassesScreen() {
   const insets = useSafeAreaInsets();
-  const [step, setStep] = useState<Step>("phone");
-  const [phone, setPhone] = useState("");
-  const [otp, setOtp] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [student, setStudent] = useState<Student | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  const requestOtp = async () => {
-    setError(null);
-    if (!/^\d{10}$/.test(phone)) {
-      setError("Please enter a valid 10-digit mobile number");
+  const load = useCallback(async () => {
+    const local = await loadMyPass();
+    if (!local) {
+      setStudent(null);
+      setLoading(false);
       return;
     }
-    setLoading(true);
+    setStudent(local);
+    setLoading(false);
     try {
-      const res = await sendOtp(phone);
-      setHint(res.mock_otp_hint ?? "Enter the OTP sent to your mobile");
-      setStep("otp");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const fresh = await getStudent(local.id);
+      setStudent(fresh);
+      await saveMyPass(fresh);
+      setNotice(null);
     } catch (e: any) {
-      setError(e?.message ?? "Failed to send OTP");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setLoading(false);
+      if (e?.message === "Registration not found") {
+        await clearMyPass();
+        setStudent(null);
+        setNotice("Your registration was removed by the admin. Please register again.");
+      }
     }
-  };
+  }, []);
 
-  const confirmOtp = async () => {
-    setError(null);
-    if (!/^\d{6}$/.test(otp)) {
-      setError("OTP must be 6 digits");
-      return;
-    }
-    setLoading(true);
-    try {
-      const s = await verifyOtp(phone, otp);
-      setStudent(s);
-      setStep("pass");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } catch (e: any) {
-      setError(e?.message ?? "Invalid OTP");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (isFocused) load();
+  }, [isFocused, load]);
 
-  const reset = () => {
-    setStep("phone");
-    setPhone("");
-    setOtp("");
-    setStudent(null);
-    setError(null);
-    setHint(null);
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
   };
 
   return (
     <View style={styles.root}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
         <Text style={styles.headerTitle}>My Pass</Text>
-        <Text style={styles.headerSub}>Retrieve your Garba entry pass</Text>
+        <Text style={styles.headerSub}>Your Garba entry pass</Text>
       </View>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      <ScrollView
+        contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brandTertiary} />
+        }
       >
-        <ScrollView
-          contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md }}
-          keyboardShouldPersistTaps="handled"
-        >
-          {step === "phone" && (
-            <View style={styles.card} testID="phone-step">
-              <View style={styles.iconHero}>
-                <MaterialIcon name="cellphone-key" size={34} color={colors.brandTertiary} />
-              </View>
-              <Text style={styles.cardTitle}>Enter Mobile Number</Text>
-              <Text style={styles.cardSub}>
-                Use the mobile number you registered with. We'll send an OTP.
-              </Text>
-              <TextInput
-                value={phone}
-                onChangeText={(v) => setPhone(v.replace(/[^0-9]/g, ""))}
-                placeholder="10-digit mobile number"
-                placeholderTextColor={colors.muted}
-                keyboardType="phone-pad"
-                maxLength={10}
-                style={styles.input}
-                testID="phone-input"
-              />
-              {error && <Text style={styles.errorText} testID="phone-error">{error}</Text>}
-              <Pressable onPress={requestOtp} disabled={loading} style={styles.cta} testID="send-otp-btn">
-                {loading ? (
-                  <ActivityIndicator color={colors.onBrandPrimary} />
-                ) : (
-                  <Text style={styles.ctaText}>Send OTP</Text>
-                )}
-              </Pressable>
-            </View>
-          )}
+        {loading && <ActivityIndicator color={colors.brandTertiary} style={{ marginTop: spacing.xl }} />}
 
-          {step === "otp" && (
-            <View style={styles.card} testID="otp-step">
-              <View style={styles.iconHero}>
-                <MaterialIcon name="shield-key" size={34} color={colors.brandTertiary} />
-              </View>
-              <Text style={styles.cardTitle}>Enter OTP</Text>
-              <Text style={styles.cardSub}>Sent to +91 {phone}</Text>
-              {hint && (
-                <View style={styles.hintBox} testID="otp-hint">
-                  <MaterialIcon name="information" size={14} color={colors.brandTertiary} />
-                  <Text style={styles.hintText}>{hint}</Text>
-                </View>
-              )}
-              <TextInput
-                value={otp}
-                onChangeText={(v) => setOtp(v.replace(/[^0-9]/g, ""))}
-                placeholder="6-digit OTP"
-                placeholderTextColor={colors.muted}
-                keyboardType="number-pad"
-                maxLength={6}
-                style={[styles.input, { letterSpacing: 8, textAlign: "center", fontSize: 20 }]}
-                testID="otp-input"
-              />
-              {error && <Text style={styles.errorText} testID="otp-error">{error}</Text>}
-              <Pressable onPress={confirmOtp} disabled={loading} style={styles.cta} testID="verify-otp-btn">
-                {loading ? (
-                  <ActivityIndicator color={colors.onBrandPrimary} />
-                ) : (
-                  <Text style={styles.ctaText}>Verify & View Pass</Text>
-                )}
-              </Pressable>
-              <Pressable onPress={reset} style={styles.textBtn}>
-                <Text style={styles.textBtnText}>Change mobile number</Text>
-              </Pressable>
+        {!loading && !student && (
+          <View style={styles.card} testID="no-pass">
+            <View style={styles.iconHero}>
+              <MaterialIcon name="ticket-confirmation-outline" size={34} color={colors.brandTertiary} />
             </View>
-          )}
+            <Text style={styles.cardTitle}>No Pass Yet</Text>
+            <Text style={styles.cardSub}>
+              {notice ?? "Register with your college admission number and your pass will appear here automatically."}
+            </Text>
+            <Pressable
+              onPress={() => router.push("/(tabs)/register")}
+              style={styles.cta}
+              testID="go-register-btn"
+            >
+              <Text style={styles.ctaText}>Register Now</Text>
+            </Pressable>
+          </View>
+        )}
 
-          {step === "pass" && student && (
-            <PassCard student={student} onReset={reset} />
-          )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        {!loading && student && <PassCard student={student} />}
+      </ScrollView>
     </View>
   );
 }
 
-function PassCard({ student, onReset }: { student: Student; onReset: () => void }) {
-  const approved = student.approved;
+function PassCard({ student }: { student: Student }) {
   return (
     <View style={styles.passCard} testID="pass-card">
       <View style={styles.passTop}>
@@ -171,15 +98,9 @@ function PassCard({ student, onReset }: { student: Student; onReset: () => void 
           <Text style={styles.passBrand}>TAAL TARANG</Text>
           <Text style={styles.passBrand2}>GARBA · 2026</Text>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: approved ? colors.success : colors.warning }]}>
-          <MaterialIcon
-            name={approved ? "check-decagram" : "clock-outline"}
-            size={14}
-            color={approved ? colors.onSuccess : colors.onWarning}
-          />
-          <Text style={[styles.statusText, { color: approved ? colors.onSuccess : colors.onWarning }]}>
-            {approved ? "Approved" : "Pending Approval"}
-          </Text>
+        <View style={[styles.statusBadge, { backgroundColor: colors.success }]}>
+          <MaterialIcon name="check-decagram" size={14} color={colors.onSuccess} />
+          <Text style={[styles.statusText, { color: colors.onSuccess }]}>Confirmed</Text>
         </View>
       </View>
 
@@ -197,6 +118,7 @@ function PassCard({ student, onReset }: { student: Student; onReset: () => void 
           <Text style={styles.passName}>{student.full_name}</Text>
           <Text style={styles.passMeta}>Admission: {student.admission_no}</Text>
           <Text style={styles.passMeta}>Class: {student.student_class}</Text>
+          <Text style={styles.passMeta}>Father: {student.father_name}</Text>
           <View style={styles.typeTag}>
             <MaterialIcon name="music" size={12} color={colors.onBrandTertiary} />
             <Text style={styles.typeTagText}>{student.type}</Text>
@@ -217,19 +139,10 @@ function PassCard({ student, onReset }: { student: Student; onReset: () => void 
         <Text style={styles.venueText}>Katni Arts & Commerce College (Autonomous)</Text>
       </View>
 
-      {!approved && (
-        <View style={styles.pendingNote} testID="pending-note">
-          <MaterialIcon name="information-outline" size={14} color={colors.warning} />
-          <Text style={styles.pendingNoteText}>
-            Your pass will be activated once admin approves your registration.
-          </Text>
-        </View>
-      )}
-
-      <Pressable onPress={onReset} style={styles.outlineBtn} testID="pass-reset-btn">
-        <MaterialIcon name="refresh" size={16} color={colors.onSurface} />
-        <Text style={styles.outlineBtnText}>Lookup Another</Text>
-      </Pressable>
+      <View style={styles.footerNote}>
+        <MaterialIcon name="information-outline" size={14} color={colors.muted} />
+        <Text style={styles.footerNoteText}>Show this pass at the entry gate along with your college ID.</Text>
+      </View>
     </View>
   );
 }
@@ -269,31 +182,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   cardTitle: { color: colors.onSurface, fontSize: 20, fontWeight: "700", textAlign: "center" },
-  cardSub: { color: colors.muted, fontSize: 13, textAlign: "center" },
-  input: {
-    backgroundColor: colors.surfaceTertiary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === "ios" ? 14 : 10,
-    color: colors.onSurface,
-    fontSize: 16,
-    minHeight: 50,
-  },
-  hintBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: colors.surfaceTertiary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 8,
-    borderRadius: radius.sm,
-    borderLeftWidth: 3,
-    borderLeftColor: colors.brandTertiary,
-  },
-  hintText: { color: colors.onSurface, fontSize: 12 },
-  errorText: { color: colors.error, fontSize: 13, fontWeight: "600" },
+  cardSub: { color: colors.muted, fontSize: 13, textAlign: "center", lineHeight: 19 },
   cta: {
     backgroundColor: colors.brandPrimary,
     borderRadius: radius.md,
@@ -301,8 +190,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ctaText: { color: colors.onBrandPrimary, fontSize: 16, fontWeight: "800" },
-  textBtn: { alignItems: "center", paddingVertical: spacing.sm },
-  textBtnText: { color: colors.brandTertiary, fontSize: 13, fontWeight: "600" },
 
   // Pass card
   passCard: {
@@ -362,26 +249,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   venueText: { color: colors.onSurface, fontSize: 13, flex: 1 },
-  pendingNote: {
+  footerNote: {
     flexDirection: "row",
     gap: spacing.sm,
     alignItems: "flex-start",
-    backgroundColor: "rgba(255,158,0,0.1)",
-    borderWidth: 1,
-    borderColor: colors.warning,
-    padding: spacing.md,
-    borderRadius: radius.md,
+    paddingHorizontal: 2,
   },
-  pendingNoteText: { color: colors.warning, fontSize: 12, flex: 1, fontWeight: "600" },
-  outlineBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.md,
-    borderRadius: radius.md,
-  },
-  outlineBtnText: { color: colors.onSurface, fontSize: 14, fontWeight: "600" },
+  footerNoteText: { color: colors.muted, fontSize: 12, flex: 1 },
 });

@@ -101,3 +101,26 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+## Iteration 3 (admission list + auto pass + new admin password + poster)
+agent_communication:
+  - agent: main
+    message: >
+      Replaced OTP/approval flow. Admin password is now Kacc@8131. Admin has two sections:
+      Registered Students (delete) and Admission No List (bulk add / remove). Registration is
+      only allowed if admission_no exists in allowed_admissions (403 otherwise, 400 if duplicate).
+      After register, student is saved to AsyncStorage and My Pass tab shows it automatically
+      (no phone/OTP). Home hero now uses local poster asset. Need full E2E test of this new flow.
+test_plan:
+  current_focus:
+    - Admin login with Kacc@8131 (and admin123 must fail)
+    - Admin > Admission No List: add numbers, list shows them, delete one
+    - Register with admission no NOT in list -> error shown
+    - Register with admission no in list -> success -> auto navigates to My Pass showing pass card
+    - My Pass tab persists pass after reload / tab switch
+    - Admin delete student -> My Pass returns to "No Pass Yet" on next focus
+  - agent: main
+    message: >
+      Iteration 3 result: backend 20/20 pass; frontend pass except My Pass not refreshing on tab
+      focus after admin delete. Fixed by adding cache:"no-store" to GET fetches (browser cache was
+      returning stale 200) and switching passes.tsx to useIsFocused-driven reload. Re-verified via
+      Playwright: register -> admin delete -> switch to My Pass shows "removed by the admin" notice.

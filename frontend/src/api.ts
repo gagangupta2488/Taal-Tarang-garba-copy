@@ -40,22 +40,8 @@ export async function registerStudent(payload: Omit<Student, "id" | "date_of_reg
   return (await res.json()) as Student;
 }
 
-export async function sendOtp(phone_no: string) {
-  const res = await fetch(`${API_URL}/students/send-otp`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone_no }),
-  });
-  if (!res.ok) throw new Error(await parseError(res));
-  return (await res.json()) as { message: string; mock_otp_hint?: string };
-}
-
-export async function verifyOtp(phone_no: string, otp: string) {
-  const res = await fetch(`${API_URL}/students/verify-otp`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone_no, otp }),
-  });
+export async function getStudent(id: string) {
+  const res = await fetch(`${API_URL}/students/${id}`, { cache: "no-store" });
   if (!res.ok) throw new Error(await parseError(res));
   return (await res.json()) as Student;
 }
@@ -71,19 +57,39 @@ export async function adminLogin(username: string, password: string) {
 }
 
 export async function adminListStudents() {
-  const res = await fetch(`${API_URL}/admin/students`);
+  const res = await fetch(`${API_URL}/admin/students`, { cache: "no-store" });
   if (!res.ok) throw new Error(await parseError(res));
   return (await res.json()) as Student[];
 }
 
-export async function adminApproveStudent(id: string) {
-  const res = await fetch(`${API_URL}/admin/students/${id}/approve`, { method: "POST" });
-  if (!res.ok) throw new Error(await parseError(res));
-  return (await res.json()) as Student;
-}
-
 export async function adminDeleteStudent(id: string) {
   const res = await fetch(`${API_URL}/admin/students/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { message: string };
+}
+
+export type AdmissionEntry = { admission_no: string; created_at: string };
+
+export async function adminListAdmissions() {
+  const res = await fetch(`${API_URL}/admin/admissions`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as AdmissionEntry[];
+}
+
+export async function adminAddAdmissions(admission_nos: string[]) {
+  const res = await fetch(`${API_URL}/admin/admissions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ admission_nos }),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { added: number; skipped: number };
+}
+
+export async function adminDeleteAdmission(admission_no: string) {
+  const res = await fetch(`${API_URL}/admin/admissions/${encodeURIComponent(admission_no)}`, {
+    method: "DELETE",
+  });
   if (!res.ok) throw new Error(await parseError(res));
   return (await res.json()) as { message: string };
 }

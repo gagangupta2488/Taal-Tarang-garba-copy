@@ -1,0 +1,36 @@
+{
+  "summary": "Backend 20/20 pytest (admin login Kacc@8131, admission list CRUD + normalize/dedupe, registration 403/200/400, case-insensitive match, student GET/DELETE 404, OTP/approve endpoints removed). Frontend E2E PASSED for: Home (hero-image, title, cards), Admin login (wrong admin123 shows admin-login-error 'Invalid admin credentials', correct Kacc@8131 reveals stat-students/stat-admissions/stat-unregistered + section chips), bulk add admissions (comma+newline, normalized/deduped, admission-row-* rendered), delete-admission-*, Register with NOPE999 shows form-feedback 'Admission number not found in college list...', valid GRB101 register -> auto-nav to pass-card showing 'Confirmed', admission + name, pass persists across tab-switch & page reload, NO phone-input / otp-input / send-otp-btn anywhere, duplicate registration shows 'Admission number already registered', re-register after deletion succeeds, admin delete-{id} removes student. ONE bug found: tab-focus does not refresh My Pass after admin deletion (useFocusEffect doesn't re-fire on expo-router tab switch on web preview); page reload DOES correctly show 'Your registration was removed by the admin...' notice.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "app/(tabs)/passes.tsx",
+        "issue": "After admin deletes the student, switching to the My Pass tab does NOT trigger useFocusEffect -> load() on web preview. Zero GET /api/students/{id} requests fire on tab focus; the stale pass-card stays visible. Only a full page reload triggers the 404 -> clearMyPass() -> 'Your registration was removed by the admin...' notice. On a real device this may work, but on the Expo web preview the tab-focus refresh is broken.",
+        "testID": "pass-card / no-pass",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_taal_tarang.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "In /app/frontend/app/(tabs)/passes.tsx replace useFocusEffect with a navigation listener that is guaranteed to fire on web tab focus — e.g. useEffect listening to usePathname()/useSegments() changes, or add navigation.addListener('focus', load). Alternatively call load() inside a useEffect([]) plus a navigation listener. This ensures the 'removed-by-admin' flow works without a page reload."
+  ],
+  "critical_code_review_comments": [
+    "server.py: admin password is hardcoded; acceptable for the spec but ideally sourced from env var ADMIN_PASSWORD.",
+    "server.py: normalize_admission upper-cases but doesn't strip inner whitespace; fine for current spec.",
+    "passes.tsx load() depends on empty useCallback deps array; the closure is stable but useFocusEffect's inner callback dependency only on load means it should re-fire on focus. On web it is not firing reliably — needs navigation.addListener fallback."
+  ],
+  "updated_files": ["/app/backend/tests/test_taal_tarang.py"],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "~95% (1 tab-focus refresh bug on web preview)"},
+  "seed_data_creation": "Backend tests clean up their own TST* admissions and student. Previous iteration left students (TT9001, TST-839614, T839128, GRB45545) in DB — harmless leftovers from older sessions; none are in the current allowed_admissions list.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All feature-tests pass except tab-focus refresh in passes.tsx. Reproduction: 1) register student via UI, land on My Pass showing pass-card. 2) go to Admin tab, delete that student. 3) tap My Pass tab -> pass-card still visible (bug). 4) reload the page -> correctly transitions to no-pass with notice 'Your registration was removed by the admin. Please register again.'. Fix in passes.tsx by adding a navigation listener in addition to useFocusEffect, then retest.",
+  "rca_of_issue": "useFocusEffect from expo-router does not reliably fire when switching between bottom-tab routes on web preview; the My Pass screen remains mounted and its load() isn't invoked on re-focus. Reload works because the component re-mounts, running load() during the initial useFocusEffect pass."
+}

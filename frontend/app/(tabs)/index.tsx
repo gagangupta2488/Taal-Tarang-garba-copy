@@ -7,7 +7,7 @@ import MaterialIcon from "@react-native-vector-icons/material-design-icons";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, radius } from "@/src/theme";
 
-const HERO = "https://images.unsplash.com/photo-1645264090488-a019de493023?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwxfHxnYXJiYSUyMGRhbmNlcnMlMjBmZXN0aXZhbCUyMG5pZ2h0fGVufDB8fHx8MTc5MDgzODYyM3ww&ixlib=rb-4.1.0&q=85";
+const HERO = require("../../assets/images/hero.jpg");
 
 const CONTACTS = ["9893395454", "9753888872", "9244803105"];
 
@@ -27,23 +27,18 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingBottom: spacing.xxxl }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.heroWrap}>
-          <Image source={{ uri: HERO }} style={styles.hero} contentFit="cover" />
-          <LinearGradient
-            colors={["rgba(11,19,43,0.1)", "rgba(11,19,43,0.6)", colors.surface]}
-            style={styles.heroScrim}
-          />
-          <View style={[styles.heroContent, { paddingTop: insets.top + spacing.lg }]}>
-            <View style={styles.badge} testID="hero-badge">
-              <MaterialIcon name="star-four-points" size={14} color={colors.onBrandTertiary} />
-              <Text style={styles.badgeText}>Cultural Festival 2026</Text>
-            </View>
-            <Text style={styles.title} testID="app-title">Taal Tarang</Text>
-            <Text style={styles.titleAccent}>Garba</Text>
-            <Text style={styles.subtitle}>
-              Katni Arts & Commerce College (Autonomous) presents a night of rhythm, color & tradition.
-            </Text>
+        <View style={[styles.heroWrap, { paddingTop: insets.top + spacing.sm }]}>
+          <View style={styles.badge} testID="hero-badge">
+            <MaterialIcon name="star-four-points" size={14} color={colors.onBrandTertiary} />
+            <Text style={styles.badgeText}>Cultural Festival 2026</Text>
           </View>
+          <View style={styles.posterFrame}>
+            <Image source={HERO} style={styles.hero} contentFit="cover" testID="hero-image" />
+          </View>
+          <Text style={styles.title} testID="app-title">Taal Tarang Garba</Text>
+          <Text style={styles.subtitle}>
+            Katni Arts & Commerce College (Autonomous) presents a night of rhythm, color & tradition.
+          </Text>
         </View>
 
         <View style={styles.content}>
@@ -129,15 +124,17 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.surface },
   scroll: { flex: 1 },
-  heroWrap: { height: 420, width: "100%", position: "relative" },
-  hero: { width: "100%", height: "100%", position: "absolute" },
-  heroScrim: { ...StyleSheet.absoluteFillObject },
-  heroContent: {
-    flex: 1,
-    paddingHorizontal: spacing.xl,
-    justifyContent: "flex-end",
-    paddingBottom: spacing.xl,
+  heroWrap: { paddingHorizontal: spacing.lg, gap: spacing.md },
+  posterFrame: {
+    width: "100%",
+    aspectRatio: 1024 / 923,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surfaceSecondary,
   },
+  hero: { width: "100%", height: "100%" },
   badge: {
     flexDirection: "row",
     alignItems: "center",
@@ -147,28 +144,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radius.pill,
-    marginBottom: spacing.md,
   },
   badgeText: { color: colors.onBrandTertiary, fontWeight: "700", fontSize: 12, letterSpacing: 0.4 },
   title: {
-    fontSize: 44,
+    fontSize: 30,
     color: colors.onSurface,
-    fontWeight: "800",
-    letterSpacing: -1,
-  },
-  titleAccent: {
-    fontSize: 52,
-    color: colors.brandPrimary,
     fontWeight: "900",
-    letterSpacing: -1.5,
-    marginTop: -8,
-    textShadowColor: "rgba(247,37,133,0.5)",
-    textShadowRadius: 20,
+    letterSpacing: -0.5,
   },
   subtitle: {
     color: colors.muted,
     fontSize: 14,
-    marginTop: spacing.md,
     lineHeight: 20,
   },
   content: { paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.md },
