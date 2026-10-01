@@ -1,8 +1,11 @@
 from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi.responses import Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+import io
+import csv
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
@@ -180,6 +183,33 @@ async def admin_delete_admission(admission_no: str):
 async def admin_list_students():
     students = await db.students.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [Student(**s) for s in students]
+
+
+@api_router.get("/admin/students/export.csv")
+async def admin_export_students_csv(type: Optional[str] = None):
+    query = {"type": type} if type in ("Free-Style", "Workshop") else {}
+    students = await db.students.find(query, {"_id": 0, "photo_base64": 0}).sort("full_name", 1).to_list(5000)
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "S.No", "Admission No", "Full Name", "Father Name", "Date of Birth", "Class", "Type",
+        "Phone", "WhatsApp", "Email", "Address", "Registration Date", "Signature",
+    ])
+    for i, s in enumerate(students, start=1):
+        writer.writerow([
+            i, s["admission_no"], s["full_name"], s["father_name"], s["date_of_birth"],
+            s["student_class"], s["type"], s["phone_no"], s["whatsapp_no"], s["email"],
+            s["address"], s["date_of_registration"], "",
+        ])
+
+    suffix = f"-{type.lower()}" if type in ("Free-Style", "Workshop") else ""
+    filename = f"taal-tarang-students{suffix}-{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
+    return Response(
+        content="\ufeff" + buf.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @api_router.delete("/admin/students/{student_id}")

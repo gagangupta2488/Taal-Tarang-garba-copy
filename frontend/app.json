@@ -21,7 +21,10 @@
         "backgroundColor": "#0B132B"
       },
       "package": "com.emergent.taaltaranggarba.nql448",
-      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"]
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -50,7 +53,8 @@
           "photosPermission": "Upload a photo for your Garba pass",
           "cameraPermission": "Capture your photo for the Garba pass"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true

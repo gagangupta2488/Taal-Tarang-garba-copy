@@ -130,3 +130,10 @@ test_plan:
       auto-capitalization / trailing spaces. Fixed: backend trims+lowercases username, trims password;
       frontend disables autoCapitalize/autoCorrect/autoComplete and adds show/hide password toggle.
       Verified by testing agent (23/23 backend, 6/6 frontend).
+  - agent: main
+    message: >
+      Added Admin type filter chips (All / Free-Style / Workshop with counts; testIDs
+      type-filter-all, type-filter-free-style, type-filter-workshop) combined with search, and CSV export
+      (export-csv-btn). Backend GET /api/admin/students/export.csv?type=Free-Style|Workshop (optional)
+      returns text/csv with Content-Disposition attachment, BOM, header row + S.No + blank Signature col,
+      photo excluded. Web opens URL (download); native writes file via expo-file-system File API and shares via expo-sharing.

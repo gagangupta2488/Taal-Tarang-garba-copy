@@ -68,6 +68,19 @@ export async function adminDeleteStudent(id: string) {
   return (await res.json()) as { message: string };
 }
 
+export type StudentType = "Free-Style" | "Workshop";
+
+export function adminExportUrl(type?: StudentType | null) {
+  const qs = type ? `?type=${encodeURIComponent(type)}` : "";
+  return `${API_URL}/admin/students/export.csv${qs}`;
+}
+
+export async function adminFetchExportCsv(type?: StudentType | null) {
+  const res = await fetch(adminExportUrl(type), { cache: "no-store" });
+  if (!res.ok) throw new Error(await parseError(res));
+  return await res.text();
+}
+
 export type AdmissionEntry = { admission_no: string; created_at: string };
 
 export async function adminListAdmissions() {

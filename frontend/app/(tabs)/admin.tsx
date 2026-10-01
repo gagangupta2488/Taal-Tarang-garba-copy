@@ -1,20 +1,24 @@
 import { useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator,
-  ScrollView, Platform, KeyboardAvoidingView, RefreshControl,
+  ScrollView, Platform, KeyboardAvoidingView, RefreshControl, Linking,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
+import { File, Paths } from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import MaterialIcon from "@react-native-vector-icons/material-design-icons";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, radius } from "@/src/theme";
 import {
-  adminLogin, adminListStudents, adminDeleteStudent, Student,
+  adminLogin, adminListStudents, adminDeleteStudent, Student, StudentType,
   adminListAdmissions, adminAddAdmissions, adminDeleteAdmission, AdmissionEntry,
+  adminExportUrl, adminFetchExportCsv,
 } from "@/src/api";
 
 type Section = "students" | "admissions";
+type TypeFilter = "all" | StudentType;
 
 export default function AdminScreen() {
   const insets = useSafeAreaInsets();
@@ -36,6 +40,32 @@ export default function AdminScreen() {
   const [admissionInput, setAdmissionInput] = useState("");
   const [adding, setAdding] = useState(false);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [exporting, setExporting] = useState(false);
+
+  const onExport = async () => {
+    const type = typeFilter === "all" ? null : typeFilter;
+    setExporting(true);
+    try {
+      if (Platform.OS === "web") {
+        await Linking.openURL(adminExportUrl(type));
+      } else {
+        const csvText = await adminFetchExportCsv(type);
+        const file = new File(Paths.cache, `taal-tarang-students${type ? `-${type.toLowerCase()}` : ""}.csv`);
+        file.write(csvText);
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(file.uri, { mimeType: "text/csv", dialogTitle: "Export students CSV", UTI: "public.comma-separated-values-text" });
+        } else {
+          flashToast(`Saved to ${file.uri}`);
+        }
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      flashToast(e?.message ?? "Export failed");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const flashToast = (msg: string) => {
     setToast(msg);
@@ -139,12 +169,18 @@ export default function AdminScreen() {
   };
 
   const q = search.trim().toLowerCase();
+  const typeStudents = typeFilter === "all" ? students : students.filter((s) => s.type === typeFilter);
+  const typeCounts = {
+    all: students.length,
+    "Free-Style": students.filter((s) => s.type === "Free-Style").length,
+    Workshop: students.filter((s) => s.type === "Workshop").length,
+  };
   const filteredStudents = q
-    ? students.filter((s) =>
+    ? typeStudents.filter((s) =>
         [s.full_name, s.admission_no, s.phone_no, s.whatsapp_no, s.student_class, s.father_name, s.email]
           .some((v) => v?.toLowerCase().includes(q)),
       )
-    : students;
+    : typeStudents;
   const filteredAdmissions = q
     ? admissions.filter((a) => a.admission_no.toLowerCase().includes(q))
     : admissions;
@@ -290,7 +326,7 @@ export default function AdminScreen() {
         {q.length > 0 && (
           <Text style={styles.resultCount} testID="admin-search-count">
             {section === "students"
-              ? `${filteredStudents.length} of ${students.length} students`
+              ? `${filteredStudents.length} of ${typeStudents.length} students`
               : `${filteredAdmissions.length} of ${admissions.length} admission numbers`}
           </Text>
         )}
@@ -373,11 +409,59 @@ export default function AdminScreen() {
           </>
         )}
 
+        {section === "students" && (
+          <View style={styles.toolsRow} testID="type-filter-row">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }} style={{ flex: 1 }}>
+              {(["all", "Free-Style", "Workshop"] as TypeFilter[]).map((t) => {
+                const active = typeFilter === t;
+                return (
+                  <Pressable
+                    key={t}
+                    onPress={() => { Haptics.selectionAsync(); setTypeFilter(t); }}
+                    style={[styles.typeChip, active && styles.typeChipActive]}
+                    testID={`type-filter-${t === "all" ? "all" : t.toLowerCase()}`}
+                  >
+                    {t !== "all" && (
+                      <MaterialIcon
+                        name={t === "Workshop" ? "school" : "music"}
+                        size={13}
+                        color={active ? colors.onBrandTertiary : colors.muted}
+                      />
+                    )}
+                    <Text style={[styles.typeChipText, active && styles.typeChipTextActive]}>
+                      {t === "all" ? "All" : t} · {typeCounts[t]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Pressable
+              onPress={onExport}
+              disabled={exporting || typeStudents.length === 0}
+              style={[styles.exportBtn, (exporting || typeStudents.length === 0) && { opacity: 0.5 }]}
+              testID="export-csv-btn"
+            >
+              {exporting ? (
+                <ActivityIndicator size="small" color={colors.onSurface} />
+              ) : (
+                <>
+                  <MaterialIcon name="file-download-outline" size={16} color={colors.onSurface} />
+                  <Text style={styles.exportText}>CSV</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        )}
+
         {section === "students" && !listLoading && filteredStudents.length === 0 && (
           <View style={styles.emptyBox} testID="admin-empty">
             <MaterialIcon name={q ? "magnify-close" : "account-off"} size={32} color={colors.muted} />
             <Text style={styles.emptyText}>
-              {q ? `No students match "${search.trim()}"` : "No students registered yet"}
+              {q
+                ? `No students match "${search.trim()}"`
+                : typeFilter === "all"
+                  ? "No students registered yet"
+                  : `No ${typeFilter} students yet`}
             </Text>
           </View>
         )}
@@ -499,6 +583,33 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, color: colors.onSurface, fontSize: 14, paddingVertical: Platform.OS === "ios" ? 12 : 8 },
   clearBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
   resultCount: { color: colors.muted, fontSize: 12, marginTop: spacing.sm, fontWeight: "600" },
+  toolsRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  typeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    height: 36,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  typeChipActive: { backgroundColor: colors.brandTertiary, borderColor: colors.brandTertiary },
+  typeChipText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
+  typeChipTextActive: { color: colors.onBrandTertiary },
+  exportBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    height: 36,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceTertiary,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+  },
+  exportText: { color: colors.onSurface, fontSize: 12, fontWeight: "800" },
 
   loginCard: {
     backgroundColor: colors.surfaceSecondary,
