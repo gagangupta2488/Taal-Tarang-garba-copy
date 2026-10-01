@@ -1,0 +1,43 @@
+{
+  "summary": "Web/PWA conversion of Taal Tarang Garba verified end-to-end. ASSETS: GET / returns 200 HTML with <title>Taal Tarang Garba</title>, manifest link, meta theme-color #0B132B, apple-touch-icon + favicon links. /manifest.json 200 valid JSON (name/short_name/start_url=/, display=standalone, icons 192/512/maskable). /icons/icon-192.png, /icons/icon-512.png, /icons/maskable-512.png, /icons/apple-touch-icon.png, /favicon.png, /sw.js all 200. DESKTOP 1366x800: web-frame present and centered at bbox {x:627,y:32,w:480,h:736}; backdrop (web-frame-backdrop) renders blurred poster with LinearGradient; side info text 'KATNI ARTS & COMMERCE COLLEGE', 'Taal Tarang Garba', '12 October 2026 · 5:30 PM' visible; bottom tabs (Home/Register/My Pass/Admin) render inside frame. Document titles switch correctly per tab: 'Home · Taal Tarang Garba', 'Register · Taal Tarang Garba', 'My Pass · Taal Tarang Garba', 'Admin · Taal Tarang Garba' — all 4 verified. FLOWS INSIDE FRAME (1366x800): Admin login (admin / Kacc@8131) → dashboard; added admission TQA84516 via admission-input + add-admission-btn (admission-row-TQA84516 appeared); registered 'QA Frame User' with all fields + Free-Style via submit-registration-btn → auto-navigated to My Pass tab, pass-card rendered, Registered count went 4→5. Student detail sheet opened via row click: student-detail-sheet bbox {x:443, y:96, w:480, h:704} — exactly 480px wide and horizontally centered in the viewport (center X 683 = viewport mid 683). Delete via student-sheet-delete succeeded (student removed from backend). TABLET 800x1100: web-frame present at {x:344,y:90,w:480,h:920}. PHONE 390x844: web-frame absent, backdrop absent, full-width layout preserved. Live window resize 1366 → 390 removes frame reactively (useWindowDimensions), 390 → 1366 restores it. REGRESSION: Home hero-image renders, all 3 contact-{num} rows present, Register CTA (register-now-btn) navigates. Zero console errors, zero Head/expo-router/head/WebFrame errors captured during full session. ISSUE FOUND: TABLET 800x1100 has 24px horizontal overflow (document scrollWidth 824 > innerWidth 800) — frame 480 + sideInfo maxWidth 320 + gap xxxl + paddingHorizontal xl exceeds 800. Side text 'KATNI ARTS & COMMERCE COLLEGE' + 'Taal Tarang Garba' is clipped at left edge. DESKTOP 1366 and PHONE 390 have no overflow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "WebFrame (tablet widths)",
+        "issues": [
+          "At 800x1100 the backdrop content (sideInfo + 480px frame + gaps) exceeds viewport width by ~24px, producing a horizontal scrollbar. docW=824, winW=800. The 'Taal Tarang Garba' side title and 'KATNI ARTS & COMMERCE COLLEGE' kicker get clipped on the left. Suggest: hide/compact sideInfo under a secondary breakpoint (e.g. width < 960), or reduce gap/paddingHorizontal, or shrink sideInfo maxWidth, or lift WIDE_BREAKPOINT to ~960 so narrow landscape tablets fall back to full-width layout. Reference: /app/frontend/src/components/WebFrame.tsx:17-67."
+        ]
+      },
+      {
+        "screen": "StudentDetailSheet (desktop web)",
+        "issues": [
+          "Sheet is centered in the full viewport (center X = window midpoint) rather than inside the WebFrame rail (frame midpoint ~867 on 1366 viewport). This is a React Native Modal portal limitation on web — the Modal mounts outside the WebFrame tree. Width 480 and centering requirements from the spec PASS, but the sheet visually overlaps the left-side info text. If the intent is to keep the mobile illusion, consider rendering the sheet as an in-tree absolute overlay (not Modal) on web, aligned to the frame bounds. Reference: /app/frontend/src/components/StudentDetailSheet.tsx:108 (Modal) + styles.sheetWeb at line 314."
+        ]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/test_reports/iteration_8.json"
+  ],
+  "action_items": [
+    "Fix tablet-width horizontal overflow in WebFrame: either (a) raise WIDE_BREAKPOINT from 720 to ~960, or (b) hide/compact sideInfo + shrink gap when width is between 720 and ~960, so docW never exceeds innerWidth. Target viewports to verify: 768x1024, 800x1100, 834x1194.",
+    "(Optional polish) Align the Student Detail Sheet with the WebFrame rail on desktop so it doesn't overlap the side info text — e.g. position via a web-only portal that uses the same horizontal center as the frame rather than full-viewport Modal center."
+  ],
+  "critical_code_review_comments": [
+    "WebFrame.tsx cleanly uses Platform.OS==='web' && width>=720 gating; useWindowDimensions makes the frame reactive to live window resize (verified). Blurred hero backdrop + LinearGradient composition looks solid.",
+    "+html.tsx (expo-router) and public/index.html (fallback template) both carry the full head set (title/manifest/theme-color/apple-touch-icon/favicon/og:*). sw.js is served (200) but registration is gated on https — fine on preview.",
+    "Per-tab titles use <Head> from expo-router/head and update document.title correctly on client-side tab switches. No stale title bleed observed.",
+    "StudentDetailSheet.tsx uses FRAME_MAX_WIDTH import from WebFrame to cap sheet width — verified 480px on desktop. Good reuse."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not in scope)", "frontend": "~95% (1 tablet overflow regression)"},
+  "seed_data_creation": "During testing: added admission TQA84516 and student 'QA Frame User'. Both cleaned up (student deleted via student-sheet-delete, admission deleted via API). Final DB state restored to baseline.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Admin creds admin/Kacc@8131. PWA assets 100% served. Only outstanding regression: WebFrame produces horizontal overflow at tablet widths 720-900ish — reproduce by setting viewport 800x1100 and comparing document.documentElement.scrollWidth to window.innerWidth. Phone (390x844) and desktop (1366x800) viewports have zero overflow. All 4 tab titles ('Home · …', 'Register · …', 'My Pass · …', 'Admin · …') verified. Student detail sheet is 480px wide + viewport-centered on desktop (overlaps side info — design decision).",
+  "rca_of_issue": "TABLET overflow RCA: WebFrame.tsx line 46-53 backdrop styles use flexDirection:'row' + gap:spacing.xxxl + paddingHorizontal:spacing.xl + sideInfo maxWidth:320 + frame width:480. On an 800-wide viewport the inner content track = 320 + xxxl_gap + 480 + 2*xl_padding ≈ 824-888px, exceeding 800 and producing a horizontal scrollbar. The WIDE_BREAKPOINT (720) is too low — enabling the wide layout before there is enough horizontal space for both sideInfo and the 480px frame. Mitigation: either raise WIDE_BREAKPOINT to ~960, or wrap sideInfo in a secondary 'ultra-wide' check (e.g. width>=960) so 720-959 shows only the centered frame + blurred backdrop without the side column."
+}

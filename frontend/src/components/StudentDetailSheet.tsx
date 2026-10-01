@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcon from "@react-native-vector-icons/material-design-icons";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, radius } from "@/src/theme";
+import { FRAME_MAX_WIDTH } from "@/src/components/WebFrame";
 import { adminUpdateStudent, type Student, type StudentType, type StudentUpdate } from "@/src/api";
 
 type Props = {
@@ -107,7 +108,7 @@ export default function StudentDetailSheet({ student, onClose, onDelete, onUpdat
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <Pressable style={styles.backdrop} onPress={onClose} testID="student-sheet-backdrop" />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + spacing.lg }]} testID="student-detail-sheet">
+      <View style={[styles.sheet, styles.sheetWeb, { paddingBottom: insets.bottom + spacing.lg }]} testID="student-detail-sheet">
         <View style={styles.handle} />
         <View style={styles.sheetHeader}>
           <Text style={styles.sheetTitle}>{editing ? "Edit Student" : "Student Details"}</Text>
@@ -309,6 +310,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: colors.borderStrong,
   },
+  sheetWeb: Platform.OS === "web"
+    ? { width: "100%", maxWidth: FRAME_MAX_WIDTH, alignSelf: "center" }
+    : {},
   handle: {
     alignSelf: "center",
     width: 40, height: 4, borderRadius: 2,

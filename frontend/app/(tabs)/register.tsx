@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as Haptics from "expo-haptics";
 import MaterialIcon from "@react-native-vector-icons/material-design-icons";
+import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { colors, spacing, radius } from "@/src/theme";
 import { registerStudent } from "@/src/api";
@@ -133,6 +134,7 @@ export default function RegisterScreen() {
 
   return (
     <View style={styles.root}>
+      <Head><title>Register · Taal Tarang Garba</title></Head>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
         <Text style={styles.headerTitle}>Student Registration</Text>
         <Text style={styles.headerSub}>Fill in your details to join Taal Tarang Garba</Text>

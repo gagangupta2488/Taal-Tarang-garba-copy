@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import MaterialIcon from "@react-native-vector-icons/material-design-icons";
+import Head from "expo-router/head";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, radius } from "@/src/theme";
 
@@ -22,6 +23,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.root}>
+      <Head><title>Home · Taal Tarang Garba</title></Head>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={{ paddingBottom: spacing.xxxl }}

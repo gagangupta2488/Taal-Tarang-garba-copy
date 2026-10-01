@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useIsFocused } from "expo-router";
 import MaterialIcon from "@react-native-vector-icons/material-design-icons";
+import Head from "expo-router/head";
 import { colors, spacing, radius } from "@/src/theme";
 import { getStudent, Student } from "@/src/api";
 import { loadMyPass, saveMyPass, clearMyPass } from "@/src/passStorage";
@@ -52,6 +53,7 @@ export default function PassesScreen() {
 
   return (
     <View style={styles.root}>
+      <Head><title>My Pass · Taal Tarang Garba</title></Head>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
         <Text style={styles.headerTitle}>My Pass</Text>
         <Text style={styles.headerSub}>Your Garba entry pass</Text>

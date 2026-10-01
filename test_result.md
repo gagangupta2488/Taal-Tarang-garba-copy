@@ -137,3 +137,16 @@ test_plan:
       (export-csv-btn). Backend GET /api/admin/students/export.csv?type=Free-Style|Workshop (optional)
       returns text/csv with Content-Disposition attachment, BOM, header row + S.No + blank Signature col,
       photo excluded. Web opens URL (download); native writes file via expo-file-system File API and shares via expo-sharing.
+  - agent: main
+    message: >
+      Web app conversion: public/index.html template (title, meta, manifest link, favicon, apple-touch-icon,
+      SW registration), public/manifest.json + poster-based icons (public/icons/*, public/favicon.png),
+      public/sw.js (network-first, skips /api). src/components/WebFrame.tsx wraps the app on web when width>=720:
+      centered 480px phone frame (testID web-frame) with blurred poster backdrop + side info; pass-through on
+      narrow/native. Per-tab <Head><title> ("Home · Taal Tarang Garba" etc). StudentDetailSheet constrained to
+      480px width on web.
+  - agent: main
+    message: >
+      Fixed tablet overflow reported in iteration_8: WebFrame now always centers the frame in the viewport
+      (modal aligns with it) and shows the absolute-positioned side info only at width >= 1024. Verified no
+      horizontal overflow at 768/800/834/1366.

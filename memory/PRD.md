@@ -25,3 +25,7 @@ Mobile event app for the Garba festival at Katni Arts & Commerce College on 12 O
 - GET /api/admin/admissions
 - POST /api/admin/admissions  { admission_nos: string[] }
 - DELETE /api/admin/admissions/{admission_no}
+
+## Web App (responsive + PWA)
+- Same Expo codebase runs as a website. On web ≥720px wide the app renders in a centered 480px phone frame (`src/components/WebFrame.tsx`) over a blurred poster backdrop; side event text appears ≥1024px. Narrow/phone browsers and native get the normal full-width layout. Bottom tabs everywhere (user choice).
+- PWA: `public/index.html` (title, meta, theme-color, manifest, favicon, apple-touch-icon, SW registration), `public/manifest.json`, poster-based icons in `public/icons/`, `public/sw.js` (network-first, never caches /api). Per-tab browser titles via `expo-router/head`.

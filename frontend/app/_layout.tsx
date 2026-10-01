@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "@react-native-vector-icons/material-design-icons";
 
 import { ErrorBoundary } from "@/src/components/error-boundary";
+import WebFrame from "@/src/components/WebFrame";
 import { queryClient } from "@/src/query-client";
 
 LogBox.ignoreAllLogs(true);
@@ -21,7 +22,9 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <StatusBar barStyle="light-content" backgroundColor="#0B132B" />
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0B132B" } }} />
+              <WebFrame>
+                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0B132B" } }} />
+              </WebFrame>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </SafeAreaProvider>

@@ -9,6 +9,7 @@ import { useFocusEffect } from "expo-router";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import MaterialIcon from "@react-native-vector-icons/material-design-icons";
+import Head from "expo-router/head";
 import * as Haptics from "expo-haptics";
 import { colors, spacing, radius } from "@/src/theme";
 import {
@@ -190,6 +191,7 @@ export default function AdminScreen() {
   if (!authed) {
     return (
       <View style={styles.root}>
+        <Head><title>Admin · Taal Tarang Garba</title></Head>
         <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
           <Text style={styles.headerTitle}>Admin Access</Text>
           <Text style={styles.headerSub}>Manage student registrations</Text>
@@ -265,6 +267,7 @@ export default function AdminScreen() {
 
   return (
     <View style={styles.root}>
+      <Head><title>Admin · Taal Tarang Garba</title></Head>
       <View style={[styles.header, { paddingTop: insets.top + spacing.md }]}>
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
           <View>
