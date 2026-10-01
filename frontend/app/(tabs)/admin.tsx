@@ -35,6 +35,7 @@ export default function AdminScreen() {
 
   const [admissionInput, setAdmissionInput] = useState("");
   const [adding, setAdding] = useState(false);
+  const [search, setSearch] = useState("");
 
   const flashToast = (msg: string) => {
     setToast(msg);
@@ -136,6 +137,17 @@ export default function AdminScreen() {
     admissions: admissions.length,
     unregistered: admissions.filter((a) => !registeredSet.has(a.admission_no)).length,
   };
+
+  const q = search.trim().toLowerCase();
+  const filteredStudents = q
+    ? students.filter((s) =>
+        [s.full_name, s.admission_no, s.phone_no, s.whatsapp_no, s.student_class, s.father_name, s.email]
+          .some((v) => v?.toLowerCase().includes(q)),
+      )
+    : students;
+  const filteredAdmissions = q
+    ? admissions.filter((a) => a.admission_no.toLowerCase().includes(q))
+    : admissions;
 
   if (!authed) {
     return (
@@ -256,6 +268,32 @@ export default function AdminScreen() {
             );
           })}
         </View>
+        <View style={styles.searchRow}>
+          <MaterialIcon name="magnify" size={20} color={colors.muted} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={section === "students" ? "Search name, admission no, phone, class…" : "Search admission no…"}
+            placeholderTextColor={colors.muted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            style={styles.searchInput}
+            testID="admin-search-input"
+          />
+          {search.length > 0 && (
+            <Pressable onPress={() => setSearch("")} style={styles.clearBtn} hitSlop={8} testID="admin-search-clear">
+              <MaterialIcon name="close-circle" size={18} color={colors.muted} />
+            </Pressable>
+          )}
+        </View>
+        {q.length > 0 && (
+          <Text style={styles.resultCount} testID="admin-search-count">
+            {section === "students"
+              ? `${filteredStudents.length} of ${students.length} students`
+              : `${filteredAdmissions.length} of ${admissions.length} admission numbers`}
+          </Text>
+        )}
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -296,13 +334,15 @@ export default function AdminScreen() {
               </Pressable>
             </View>
 
-            {!listLoading && admissions.length === 0 && (
+            {!listLoading && filteredAdmissions.length === 0 && (
               <View style={styles.emptyBox} testID="admissions-empty">
-                <MaterialIcon name="format-list-bulleted" size={32} color={colors.muted} />
-                <Text style={styles.emptyText}>No admission numbers added yet</Text>
+                <MaterialIcon name={q ? "magnify-close" : "format-list-bulleted"} size={32} color={colors.muted} />
+                <Text style={styles.emptyText}>
+                  {q ? `No admission numbers match "${search.trim()}"` : "No admission numbers added yet"}
+                </Text>
               </View>
             )}
-            {admissions.map((a) => {
+            {filteredAdmissions.map((a) => {
               const registered = registeredSet.has(a.admission_no);
               return (
                 <View key={a.admission_no} style={styles.admRow} testID={`admission-row-${a.admission_no}`}>
@@ -333,13 +373,15 @@ export default function AdminScreen() {
           </>
         )}
 
-        {section === "students" && !listLoading && students.length === 0 && (
+        {section === "students" && !listLoading && filteredStudents.length === 0 && (
           <View style={styles.emptyBox} testID="admin-empty">
-            <MaterialIcon name="account-off" size={32} color={colors.muted} />
-            <Text style={styles.emptyText}>No students registered yet</Text>
+            <MaterialIcon name={q ? "magnify-close" : "account-off"} size={32} color={colors.muted} />
+            <Text style={styles.emptyText}>
+              {q ? `No students match "${search.trim()}"` : "No students registered yet"}
+            </Text>
           </View>
         )}
-        {section === "students" && students.map((s) => (
+        {section === "students" && filteredStudents.map((s) => (
           <View key={s.id} style={styles.row} testID={`student-row-${s.id}`}>
             <View style={styles.rowAvatar}>
               {s.photo_base64 ? (
@@ -442,6 +484,21 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary },
   filterChipText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
   filterChipTextActive: { color: colors.onBrandPrimary },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    minHeight: 46,
+  },
+  searchInput: { flex: 1, color: colors.onSurface, fontSize: 14, paddingVertical: Platform.OS === "ios" ? 12 : 8 },
+  clearBtn: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  resultCount: { color: colors.muted, fontSize: 12, marginTop: spacing.sm, fontWeight: "600" },
 
   loginCard: {
     backgroundColor: colors.surfaceSecondary,
