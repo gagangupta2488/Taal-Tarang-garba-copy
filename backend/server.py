@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import io
 import csv
+import re
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
@@ -60,6 +61,18 @@ class Student(BaseModel):
     photo_base64: Optional[str] = None
     approved: bool = False
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+
+class StudentUpdate(BaseModel):
+    full_name: Optional[str] = None
+    father_name: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    type: Optional[Literal["Free-Style", "Workshop"]] = None
+    address: Optional[str] = None
+    student_class: Optional[str] = None
+    phone_no: Optional[str] = None
+    whatsapp_no: Optional[str] = None
+    email: Optional[str] = None
 
 
 class AdminLogin(BaseModel):
@@ -210,6 +223,31 @@ async def admin_export_students_csv(type: Optional[str] = None):
         media_type="text/csv; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@api_router.patch("/admin/students/{student_id}", response_model=Student)
+async def admin_update_student(student_id: str, payload: StudentUpdate):
+    updates = {k: (v.strip() if isinstance(v, str) else v) for k, v in payload.model_dump(exclude_none=True).items()}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    for key in ("full_name", "father_name", "date_of_birth", "address", "student_class", "email"):
+        if key in updates and not updates[key]:
+            raise HTTPException(status_code=400, detail=f"{key.replace('_', ' ').title()} cannot be empty")
+    for key in ("phone_no", "whatsapp_no"):
+        if key in updates and not re.fullmatch(r"\d{10}", updates[key]):
+            raise HTTPException(status_code=400, detail=f"{'Phone' if key == 'phone_no' else 'WhatsApp'} must be 10 digits")
+    if "email" in updates and not re.fullmatch(r"\S+@\S+\.\S+", updates["email"]):
+        raise HTTPException(status_code=400, detail="Valid email required")
+
+    result = await db.students.find_one_and_update(
+        {"id": student_id},
+        {"$set": updates},
+        return_document=True,
+        projection={"_id": 0},
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return Student(**result)
 
 
 @api_router.delete("/admin/students/{student_id}")

@@ -70,6 +70,20 @@ export async function adminDeleteStudent(id: string) {
 
 export type StudentType = "Free-Style" | "Workshop";
 
+export type StudentUpdate = Partial<
+  Pick<Student, "full_name" | "father_name" | "date_of_birth" | "address" | "student_class" | "phone_no" | "whatsapp_no" | "email">
+> & { type?: StudentType };
+
+export async function adminUpdateStudent(id: string, payload: StudentUpdate) {
+  const res = await fetch(`${API_URL}/admin/students/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as Student;
+}
+
 export function adminExportUrl(type?: StudentType | null) {
   const qs = type ? `?type=${encodeURIComponent(type)}` : "";
   return `${API_URL}/admin/students/export.csv${qs}`;

@@ -518,6 +518,11 @@ export default function AdminScreen() {
         student={selected}
         onClose={() => setSelected(null)}
         onDelete={(s) => { setSelected(null); onDelete(s); }}
+        onUpdated={(updated) => {
+          setStudents((list) => list.map((s) => (s.id === updated.id ? updated : s)));
+          setSelected(updated);
+          flashToast(`Updated ${updated.full_name}`);
+        }}
       />
 
       {toast && (
