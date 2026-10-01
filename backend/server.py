@@ -130,7 +130,9 @@ async def get_student(student_id: str):
 
 @api_router.post("/admin/login")
 async def admin_login(payload: AdminLogin):
-    if payload.username != ADMIN_USERNAME or payload.password != ADMIN_PASSWORD:
+    username = payload.username.strip().lower()
+    password = payload.password.strip()
+    if username != ADMIN_USERNAME or password != ADMIN_PASSWORD:
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
     return {"token": "admin-session-token", "username": ADMIN_USERNAME}
 

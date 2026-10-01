@@ -1,0 +1,30 @@
+{
+  "summary": "Admin login fix verified end-to-end. Backend: 23/23 pytest pass — login success with correct creds (admin/Kacc@8131) returns 200+token, trim+lower-case ('Admin ' / ' Kacc@8131 ') succeeds, wrong-case password (kacc@8131) returns 401, old admin123 returns 401, wrong username returns 401, missing fields returns 422. Frontend (mobile 390x844): Admin tab login card renders with testIDs; admin/Kacc@8131 -> dashboard (stat-students + section-students visible); 'Admin ' + 'Kacc@8131 ' (caps+trailing spaces) also succeeds (frontend trims before POST); wrong password shows admin-login-error 'Invalid admin credentials'; toggle-password-btn correctly cycles input .type password -> text -> password; admin-logout-btn returns to login card and re-login works. No react_native_issues detected.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_taal_tarang.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py admin_login: trims+lowercases username and trims password — matches the spec; password remains case-sensitive. Hardcoded ADMIN_USERNAME/ADMIN_PASSWORD is acceptable for this app but ideally should come from env vars.",
+    "admin.tsx doLogin: calls adminLogin(username.trim(), password.trim()) — frontend-side trim matches backend normalisation.",
+    "Password TextInput has autoCapitalize='none', autoCorrect=false, autoComplete='off', textContentType='none' — correctly prevents mobile keyboard auto-capitalisation and autofill mangling.",
+    "toggle-password-btn: in React Native Web, when secureTextEntry=false no explicit type attribute is set (defaults to text); DOM el.type still correctly reads 'text', so behaviour is correct even though getAttribute('type') returns null in show mode."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_taal_tarang.py (added TestAdminLogin.test_login_trim_and_lower_username, test_login_wrong_case_password_rejected, test_login_missing_fields_422)"
+  ],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "100% (6/6 admin login scenarios)"},
+  "seed_data_creation": "No new seed data created. Previous iterations' leftover students (TT9001, TST-839614, T839128) still present in DB — harmless, not touched.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Admin login bug ('admin not login - login problem') is fully resolved. Both backend normalisation (strip + lower on username, strip on password) and frontend input hygiene (trim before POST, no autoCapitalize/autoCorrect/autoComplete, show/hide eye toggle) are working on the Expo web preview at mobile viewport 390x844.",
+  "rca_of_issue": "ROOT CAUSE: user's mobile keyboard was likely auto-capitalising the first letter of 'admin' and/or inserting a trailing space before 'Kacc@8131', so the strict equality check on backend returned 401. FIX VERIFIED: (1) backend admin_login now does username.strip().lower() and password.strip() before comparing; (2) frontend doLogin trims both fields and the TextInputs have autoCapitalize='none'/autoCorrect=false/autoComplete='off'/textContentType='none'; (3) a show/hide password toggle (testID='toggle-password-btn') lets users visually confirm their typed password. All 23 backend pytest cases and all 6 frontend scenarios pass."
+}

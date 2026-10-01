@@ -124,3 +124,9 @@ test_plan:
       focus after admin delete. Fixed by adding cache:"no-store" to GET fetches (browser cache was
       returning stale 200) and switching passes.tsx to useIsFocused-driven reload. Re-verified via
       Playwright: register -> admin delete -> switch to My Pass shows "removed by the admin" notice.
+  - agent: main
+    message: >
+      Admin login bug (user report): root cause was exact-match comparison failing on mobile keyboard
+      auto-capitalization / trailing spaces. Fixed: backend trims+lowercases username, trims password;
+      frontend disables autoCapitalize/autoCorrect/autoComplete and adds show/hide password toggle.
+      Verified by testing agent (23/23 backend, 6/6 frontend).

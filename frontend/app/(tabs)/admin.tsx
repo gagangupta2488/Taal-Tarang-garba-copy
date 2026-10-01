@@ -23,6 +23,7 @@ export default function AdminScreen() {
   const [password, setPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [section, setSection] = useState<Section>("students");
   const [students, setStudents] = useState<Student[]>([]);
@@ -44,7 +45,7 @@ export default function AdminScreen() {
     setLoginError(null);
     setLoginLoading(true);
     try {
-      await adminLogin(username.trim(), password);
+      await adminLogin(username.trim(), password.trim());
       setAuthed(true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await loadAll();
@@ -165,21 +166,37 @@ export default function AdminScreen() {
                   placeholder="admin"
                   placeholderTextColor={colors.muted}
                   autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="off"
                   style={styles.input}
                   testID="admin-username"
                 />
               </View>
               <View>
                 <Text style={styles.label}>Password</Text>
-                <TextInput
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="••••••••"
-                  placeholderTextColor={colors.muted}
-                  secureTextEntry
-                  style={styles.input}
-                  testID="admin-password"
-                />
+                <View style={styles.passwordRow}>
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="••••••••"
+                    placeholderTextColor={colors.muted}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                    style={[styles.input, { flex: 1, borderWidth: 0, backgroundColor: "transparent" }]}
+                    testID="admin-password"
+                  />
+                  <Pressable
+                    onPress={() => setShowPassword((v) => !v)}
+                    style={styles.eyeBtn}
+                    hitSlop={8}
+                    testID="toggle-password-btn"
+                  >
+                    <MaterialIcon name={showPassword ? "eye-off" : "eye"} size={20} color={colors.muted} />
+                  </Pressable>
+                </View>
               </View>
               {loginError && <Text style={styles.errorText} testID="admin-login-error">{loginError}</Text>}
               <Pressable onPress={doLogin} disabled={loginLoading} style={styles.cta} testID="admin-login-btn">
@@ -462,6 +479,19 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   errorText: { color: colors.error, fontSize: 13, fontWeight: "600" },
+  passwordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surfaceTertiary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingRight: spacing.xs,
+  },
+  eyeBtn: {
+    width: 44, height: 44,
+    alignItems: "center", justifyContent: "center",
+  },
   cta: {
     backgroundColor: colors.brandPrimary,
     borderRadius: radius.md,

@@ -51,6 +51,21 @@ class TestAdminLogin:
         r = session.post(f"{API}/admin/login", json={"username": "root", "password": "Kacc@8131"})
         assert r.status_code == 401
 
+    def test_login_trim_and_lower_username(self, session):
+        # 'Admin ' with cap + trailing spaces on both fields should still work
+        r = session.post(f"{API}/admin/login", json={"username": "Admin ", "password": " Kacc@8131 "})
+        assert r.status_code == 200, r.text
+        assert r.json().get("username") == "admin"
+
+    def test_login_wrong_case_password_rejected(self, session):
+        # password should remain case-sensitive
+        r = session.post(f"{API}/admin/login", json={"username": "admin", "password": "kacc@8131"})
+        assert r.status_code == 401
+
+    def test_login_missing_fields_422(self, session):
+        r = session.post(f"{API}/admin/login", json={"username": "admin"})
+        assert r.status_code == 422
+
 
 # ---------- Admission list CRUD ----------
 class TestAdmissionList:
