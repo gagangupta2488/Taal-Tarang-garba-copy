@@ -36,6 +36,7 @@ const dark = {
   border: "#293241",
   borderStrong: "#FFD000",
   divider: "#1C2541",
+  overlay: "rgba(5, 9, 22, 0.7)",
 };
 
 export type ThemeColors = typeof dark;
@@ -72,6 +73,7 @@ export const radius = {
   sm: 6,
   md: 12,
   lg: 20,
+  xl: 28,
   pill: 999,
 };
 

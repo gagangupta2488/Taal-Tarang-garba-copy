@@ -16,6 +16,7 @@ import {
   adminListAdmissions, adminAddAdmissions, adminDeleteAdmission, AdmissionEntry,
   adminExportUrl, adminFetchExportCsv,
 } from "@/src/api";
+import StudentDetailSheet from "@/src/components/StudentDetailSheet";
 
 type Section = "students" | "admissions";
 type TypeFilter = "all" | StudentType;
@@ -42,6 +43,7 @@ export default function AdminScreen() {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [exporting, setExporting] = useState(false);
+  const [selected, setSelected] = useState<Student | null>(null);
 
   const onExport = async () => {
     const type = typeFilter === "all" ? null : typeFilter;
@@ -466,7 +468,12 @@ export default function AdminScreen() {
           </View>
         )}
         {section === "students" && filteredStudents.map((s) => (
-          <View key={s.id} style={styles.row} testID={`student-row-${s.id}`}>
+          <Pressable
+            key={s.id}
+            onPress={() => { Haptics.selectionAsync(); setSelected(s); }}
+            style={({ pressed }) => [styles.row, pressed && { opacity: 0.85 }]}
+            testID={`student-row-${s.id}`}
+          >
             <View style={styles.rowAvatar}>
               {s.photo_base64 ? (
                 <Image source={{ uri: s.photo_base64 }} style={styles.rowAvatarImg} contentFit="cover" />
@@ -477,14 +484,17 @@ export default function AdminScreen() {
               )}
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.rowName}>{s.full_name}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <Text style={styles.rowName}>{s.full_name}</Text>
+                <MaterialIcon name="chevron-right" size={20} color={colors.muted} />
+              </View>
               <Text style={styles.rowMeta}>Adm: {s.admission_no} · {s.student_class}</Text>
               <Text style={styles.rowMeta}>+91 {s.phone_no} · {s.type}</Text>
               <Text style={styles.rowMeta}>Registered {s.date_of_registration}</Text>
               <View style={styles.rowActions}>
                 <Pressable
                   disabled={actionId === s.id}
-                  onPress={() => onDelete(s)}
+                  onPress={(e) => { e.stopPropagation?.(); onDelete(s); }}
                   style={[styles.actionBtn, { backgroundColor: colors.error }]}
                   testID={`delete-${s.id}`}
                 >
@@ -499,10 +509,16 @@ export default function AdminScreen() {
                 </Pressable>
               </View>
             </View>
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
       </KeyboardAvoidingView>
+
+      <StudentDetailSheet
+        student={selected}
+        onClose={() => setSelected(null)}
+        onDelete={(s) => { setSelected(null); onDelete(s); }}
+      />
 
       {toast && (
         <View style={[styles.toast, { bottom: insets.bottom + 72 }]} testID="admin-toast">
