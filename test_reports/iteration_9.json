@@ -1,0 +1,29 @@
+{
+  "summary": "All 3 user requests verified end-to-end on preview URL. BACKEND: 12/12 pytest cases pass (/app/backend/tests/test_admissions_phone.py). GET /api/admissions/check correctly returns normalized upper-case admission_no + {allowed, registered} flags for unknown/in-list-unregistered/in-list-registered/lowercase+whitespace cases; empty/whitespace => 400. GET /api/students/by-phone/{phone} returns 200 with full student when phone matches phone_no OR whatsapp_no, accepts '+91 <10digit>' and '91<10digit>' (last 10 digits), 404 'No registration found for this mobile number' for unknown, 400 'Enter a valid 10-digit mobile number' for <10 digits. FRONTEND (390x844): Register inline validation works - typing NOPE999 shows admission-error 'Admission number not found in college list. Please contact the admin.' with red border (rgb(230,57,70)); typing seeded QAUI01 shows admission-ok 'Admission number verified' in green; typing already-registered TT9001 shows admission-error 'This admission number is already registered. Open My Pass to view your pass.'; submitting with bad admission shows form-feedback with same copy and triggers scroll-to-top. My Pass empty state (fresh localStorage) shows BOTH phone-lookup card (phone-input + find-pass-btn) AND no-pass 'New Here?' card (go-register-btn). Unknown phone (9876543210) => phone-error 'No registration found for this mobile number'; 5-digit input => 'Please enter a valid 10-digit mobile number'; registered phone 9000000001 => pass-card renders student 'Test Student' admission TT9001; pass persists across hard reload; forget-pass-btn returns to lookup card. pass-card contains testID pass-poster visible with non-zero bounds (356x320) above TAAL TARANG header; ENTRY PASS badge, Confirmed badge, avatar initials/photo, Admission/Class/Father/Type/Date/Time/Reg details all render. REGRESSION: Full register flow (seed admission via POST /api/admin/admissions -> fill all fields -> submit) succeeds, auto-navigates to My Pass within ~1.2s, pass-card displays with uploaded poster hero.jpg + student details. All seeded data (QAUI01, QAUI02, and per-run UIR* + REG*) cleaned up successfully (DELETE 200).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admissions_phone.py",
+    "/app/test_reports/pytest/admissions_phone.xml",
+    "/app/test_reports/iteration_9.json"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py normalize_admission (strip+upper) is applied consistently in /register, /admissions/check, /admin/admissions POST and DELETE — good.",
+    "/api/students/by-phone/{phone} correctly strips non-digits and takes last 10 so '+91 9xxxxxxxxx' and '919xxxxxxxxx' both resolve to the stored 10-digit field. Matches phone_no OR whatsapp_no via $or.",
+    "register.tsx uses a 500ms debounce on checkAdmission; cancels in-flight requests via a `cancelled` flag. isAdmissionError regex (/admission number/i) matches both 'not found' and 'already registered' copies so submit-time errors also scroll to top and flip the field to red.",
+    "passes.tsx POSTER=require('../../assets/images/hero.jpg') is embedded in PassCard above the TAAL TARANG header with LinearGradient scrim + ENTRY PASS pill — exactly as specced. Poster uses aspectRatio 1024/923 so it never collapses to 0 height.",
+    "Phone lookup saves pass via saveMyPass(s), so reload persistence works without extra wiring. forget-pass-btn calls clearMyPass + setStudent(null), restoring the lookup card without route change."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% (all register + my-pass flows + regression)"},
+  "seed_data_creation": "Created & cleaned up: admission numbers QAUI01, QAUI02 (seed), per-run UIR<4hex> + REG<4hex> (register flow). All students + admissions deleted via API at end of each run; backend test suite has autouse module fixture that also cleans its own seed. Final DB state baseline-restored (TT9001 / 9000000001 untouched).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Three features from iteration 9 fully verified: (1) inline admission-no validation on Register, (2) phone-lookup on My Pass tab, (3) poster image embedded at top of pass-card. Baseline seed data: admission TT9001 / phone 9000000001 / student 'Test Student' must stay in DB for lookup regression. Admin creds admin/Kacc@8131. Preview URL: https://taal-tarang-garba.preview.emergentagent.com. New pytest file: /app/backend/tests/test_admissions_phone.py (12 cases, parallel-safe via unique RUN_TAG). Prior tablet-overflow WebFrame issue from iteration_8 was NOT retested here — out of scope."
+}

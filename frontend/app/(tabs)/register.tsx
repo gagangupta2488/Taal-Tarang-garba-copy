@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TextInput, Pressable, Platform,
   KeyboardAvoidingView, ActivityIndicator,
@@ -11,8 +11,17 @@ import MaterialIcon from "@react-native-vector-icons/material-design-icons";
 import Head from "expo-router/head";
 import { useRouter } from "expo-router";
 import { colors, spacing, radius } from "@/src/theme";
-import { registerStudent } from "@/src/api";
+import { registerStudent, checkAdmission } from "@/src/api";
 import { saveMyPass } from "@/src/passStorage";
+
+type AdmissionStatus =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "ok" }
+  | { state: "error"; msg: string };
+
+const ADMISSION_NOT_FOUND = "Admission number not found in college list. Please contact the admin.";
+const ADMISSION_REGISTERED = "This admission number is already registered. Open My Pass to view your pass.";
 
 type FormState = {
   admission_no: string;
@@ -47,6 +56,34 @@ export default function RegisterScreen() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [admissionStatus, setAdmissionStatus] = useState<AdmissionStatus>({ state: "idle" });
+  const scrollRef = useRef<ScrollView>(null);
+
+  // Live check of the admission number against the admin's list (debounced)
+  useEffect(() => {
+    const value = form.admission_no.trim();
+    if (!value) {
+      setAdmissionStatus({ state: "idle" });
+      return;
+    }
+    let cancelled = false;
+    setAdmissionStatus({ state: "checking" });
+    const t = setTimeout(async () => {
+      try {
+        const res = await checkAdmission(value);
+        if (cancelled) return;
+        if (!res.allowed) setAdmissionStatus({ state: "error", msg: ADMISSION_NOT_FOUND });
+        else if (res.registered) setAdmissionStatus({ state: "error", msg: ADMISSION_REGISTERED });
+        else setAdmissionStatus({ state: "ok" });
+      } catch {
+        if (!cancelled) setAdmissionStatus({ state: "idle" });
+      }
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [form.admission_no]);
 
   const today = new Date().toLocaleDateString(undefined, {
     year: "numeric", month: "short", day: "2-digit",
@@ -93,6 +130,7 @@ export default function RegisterScreen() {
 
   const validate = (): string | null => {
     if (!form.admission_no.trim()) return "Admission No is required";
+    if (admissionStatus.state === "error") return admissionStatus.msg;
     if (!form.full_name.trim()) return "Full Name is required";
     if (!form.date_of_birth.trim()) return "Date of Birth is required";
     if (!form.father_name.trim()) return "Father Name is required";
@@ -104,11 +142,14 @@ export default function RegisterScreen() {
     return null;
   };
 
+  const isAdmissionError = (msg: string) => /admission number/i.test(msg);
+
   const onSubmit = async () => {
     const err = validate();
     if (err) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setFeedback({ type: "error", msg: err });
+      if (isAdmissionError(err)) scrollRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
     setSubmitting(true);
@@ -123,10 +164,16 @@ export default function RegisterScreen() {
       });
       setForm(INITIAL);
       setPhoto(null);
+      setAdmissionStatus({ state: "idle" });
       setTimeout(() => router.push("/(tabs)/passes"), 1200);
     } catch (e: any) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setFeedback({ type: "error", msg: e?.message ?? "Registration failed" });
+      const msg = e?.message ?? "Registration failed";
+      setFeedback({ type: "error", msg });
+      if (isAdmissionError(msg)) {
+        setAdmissionStatus({ state: "error", msg });
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -145,6 +192,7 @@ export default function RegisterScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -179,14 +227,35 @@ export default function RegisterScreen() {
 
           <ReadOnlyField label="Date of Registration" value={today} />
 
-          <Field
-            label="Admission No"
-            value={form.admission_no}
-            onChangeText={(v) => update("admission_no", v)}
-            placeholder="Admission No from college list"
-            autoCapitalize="characters"
-            testID="field-admission-no"
-          />
+          <View>
+            <Field
+              label="Admission No"
+              value={form.admission_no}
+              onChangeText={(v) => update("admission_no", v)}
+              placeholder="Admission No from college list"
+              autoCapitalize="characters"
+              testID="field-admission-no"
+              status={admissionStatus.state === "error" ? "error" : admissionStatus.state === "ok" ? "ok" : undefined}
+            />
+            {admissionStatus.state === "checking" && (
+              <View style={styles.fieldHint} testID="admission-checking">
+                <ActivityIndicator size="small" color={colors.muted} />
+                <Text style={styles.fieldHintText}>Checking admission number…</Text>
+              </View>
+            )}
+            {admissionStatus.state === "ok" && (
+              <View style={styles.fieldHint} testID="admission-ok">
+                <MaterialIcon name="check-circle" size={14} color={colors.success} />
+                <Text style={[styles.fieldHintText, { color: colors.success }]}>Admission number verified</Text>
+              </View>
+            )}
+            {admissionStatus.state === "error" && (
+              <View style={styles.fieldHint} testID="admission-error">
+                <MaterialIcon name="alert-circle" size={14} color={colors.error} />
+                <Text style={[styles.fieldHintText, { color: colors.error }]}>{admissionStatus.msg}</Text>
+              </View>
+            )}
+          </View>
           <Field
             label="Full Name"
             value={form.full_name}
@@ -330,6 +399,7 @@ function Field(props: {
   maxLength?: number;
   multiline?: boolean;
   testID?: string;
+  status?: "ok" | "error";
 }) {
   return (
     <View>
@@ -341,9 +411,15 @@ function Field(props: {
         placeholderTextColor={colors.muted}
         keyboardType={props.keyboardType ?? "default"}
         autoCapitalize={props.autoCapitalize ?? "sentences"}
+        autoCorrect={false}
         maxLength={props.maxLength}
         multiline={props.multiline}
-        style={[styles.input, props.multiline && { height: 80, textAlignVertical: "top" }]}
+        style={[
+          styles.input,
+          props.multiline && { height: 80, textAlignVertical: "top" },
+          props.status === "error" && { borderColor: colors.error },
+          props.status === "ok" && { borderColor: colors.success },
+        ]}
         testID={props.testID}
       />
     </View>
@@ -425,6 +501,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     minHeight: 48,
   },
+  fieldHint: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 },
+  fieldHintText: { color: colors.muted, fontSize: 12, fontWeight: "600", flex: 1 },
   segment: {
     flexDirection: "row",
     backgroundColor: colors.surfaceSecondary,

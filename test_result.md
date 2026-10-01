@@ -150,3 +150,11 @@ test_plan:
       Fixed tablet overflow reported in iteration_8: WebFrame now always centers the frame in the viewport
       (modal aligns with it) and shows the absolute-positioned side info only at width >= 1024. Verified no
       horizontal overflow at 768/800/834/1366.
+  - agent: main
+    message: >
+      User requests: (1) inline admission-no error in registration — live debounced check via
+      GET /api/admissions/check?admission_no= shows admission-error / admission-ok / admission-checking under
+      the field; submit errors mentioning admission also surface there and scroll to top. (2) My Pass:
+      phone-lookup card (phone-input, find-pass-btn, phone-error) via GET /api/students/by-phone/{phone}
+      (matches phone_no or whatsapp_no), saves pass locally; forget-pass-btn clears. (3) Pass card shows
+      poster image (pass-poster).

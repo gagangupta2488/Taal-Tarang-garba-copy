@@ -136,6 +136,29 @@ async def register_student(payload: StudentCreate):
     return student
 
 
+@api_router.get("/admissions/check")
+async def check_admission(admission_no: str):
+    value = normalize_admission(admission_no)
+    if not value:
+        raise HTTPException(status_code=400, detail="Admission number is required")
+    allowed = await db.allowed_admissions.find_one({"admission_no": value}, {"_id": 0})
+    registered = await db.students.find_one({"admission_no": value}, {"_id": 0, "id": 1})
+    return {"admission_no": value, "allowed": bool(allowed), "registered": bool(registered)}
+
+
+@api_router.get("/students/by-phone/{phone_no}", response_model=Student)
+async def get_student_by_phone(phone_no: str):
+    phone = re.sub(r"\D", "", phone_no)[-10:]
+    if len(phone) != 10:
+        raise HTTPException(status_code=400, detail="Enter a valid 10-digit mobile number")
+    student = await db.students.find_one(
+        {"$or": [{"phone_no": phone}, {"whatsapp_no": phone}]}, {"_id": 0}
+    )
+    if not student:
+        raise HTTPException(status_code=404, detail="No registration found for this mobile number")
+    return Student(**student)
+
+
 @api_router.get("/students/{student_id}", response_model=Student)
 async def get_student(student_id: str):
     student = await db.students.find_one({"id": student_id}, {"_id": 0})

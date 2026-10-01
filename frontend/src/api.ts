@@ -46,6 +46,18 @@ export async function getStudent(id: string) {
   return (await res.json()) as Student;
 }
 
+export async function getStudentByPhone(phone_no: string) {
+  const res = await fetch(`${API_URL}/students/by-phone/${encodeURIComponent(phone_no)}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as Student;
+}
+
+export async function checkAdmission(admission_no: string) {
+  const res = await fetch(`${API_URL}/admissions/check?admission_no=${encodeURIComponent(admission_no)}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(await parseError(res));
+  return (await res.json()) as { admission_no: string; allowed: boolean; registered: boolean };
+}
+
 export async function adminLogin(username: string, password: string) {
   const res = await fetch(`${API_URL}/admin/login`, {
     method: "POST",

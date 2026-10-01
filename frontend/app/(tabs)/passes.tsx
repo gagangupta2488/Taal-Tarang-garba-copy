@@ -1,13 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, RefreshControl } from "react-native";
+import {
+  View, Text, StyleSheet, Pressable, ActivityIndicator, ScrollView, RefreshControl,
+  TextInput, KeyboardAvoidingView, Platform,
+} from "react-native";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, useIsFocused } from "expo-router";
 import MaterialIcon from "@react-native-vector-icons/material-design-icons";
+import * as Haptics from "expo-haptics";
 import Head from "expo-router/head";
 import { colors, spacing, radius } from "@/src/theme";
-import { getStudent, Student } from "@/src/api";
+import { getStudent, getStudentByPhone, Student } from "@/src/api";
 import { loadMyPass, saveMyPass, clearMyPass } from "@/src/passStorage";
+
+const POSTER = require("../../assets/images/hero.jpg");
 
 export default function PassesScreen() {
   const insets = useSafeAreaInsets();
@@ -16,6 +23,37 @@ export default function PassesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [student, setStudent] = useState<Student | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [phone, setPhone] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
+  const lookupByPhone = async () => {
+    setLookupError(null);
+    if (!/^\d{10}$/.test(phone)) {
+      setLookupError("Please enter a valid 10-digit mobile number");
+      return;
+    }
+    setLookupLoading(true);
+    try {
+      const s = await getStudentByPhone(phone);
+      await saveMyPass(s);
+      setStudent(s);
+      setNotice(null);
+      setPhone("");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (e: any) {
+      setLookupError(e?.message ?? "No registration found for this mobile number");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const forgetPass = async () => {
+    await clearMyPass();
+    setStudent(null);
+    setNotice(null);
+  };
 
   const load = useCallback(async () => {
     const local = await loadMyPass();
@@ -59,8 +97,10 @@ export default function PassesScreen() {
         <Text style={styles.headerSub}>Your Garba entry pass</Text>
       </View>
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView
         contentContainerStyle={{ padding: spacing.lg, paddingBottom: spacing.xxxl, gap: spacing.md }}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brandTertiary} />
         }
@@ -68,26 +108,72 @@ export default function PassesScreen() {
         {loading && <ActivityIndicator color={colors.brandTertiary} style={{ marginTop: spacing.xl }} />}
 
         {!loading && !student && (
-          <View style={styles.card} testID="no-pass">
-            <View style={styles.iconHero}>
-              <MaterialIcon name="ticket-confirmation-outline" size={34} color={colors.brandTertiary} />
+          <>
+            <View style={styles.card} testID="phone-lookup">
+              <View style={styles.iconHero}>
+                <MaterialIcon name="cellphone-check" size={34} color={colors.brandTertiary} />
+              </View>
+              <Text style={styles.cardTitle}>Already Registered?</Text>
+              <Text style={styles.cardSub}>
+                Enter the mobile number you registered with to view your pass.
+              </Text>
+              <TextInput
+                value={phone}
+                onChangeText={(v) => setPhone(v.replace(/[^0-9]/g, ""))}
+                placeholder="10-digit mobile number"
+                placeholderTextColor={colors.muted}
+                keyboardType="phone-pad"
+                maxLength={10}
+                returnKeyType="done"
+                onSubmitEditing={lookupByPhone}
+                style={styles.input}
+                testID="phone-input"
+              />
+              {lookupError && (
+                <View style={styles.errorRow} testID="phone-error">
+                  <MaterialIcon name="alert-circle" size={14} color={colors.error} />
+                  <Text style={styles.errorText}>{lookupError}</Text>
+                </View>
+              )}
+              <Pressable onPress={lookupByPhone} disabled={lookupLoading} style={styles.cta} testID="find-pass-btn">
+                {lookupLoading ? (
+                  <ActivityIndicator color={colors.onBrandPrimary} />
+                ) : (
+                  <Text style={styles.ctaText}>Find My Pass</Text>
+                )}
+              </Pressable>
             </View>
-            <Text style={styles.cardTitle}>No Pass Yet</Text>
-            <Text style={styles.cardSub}>
-              {notice ?? "Register with your college admission number and your pass will appear here automatically."}
-            </Text>
-            <Pressable
-              onPress={() => router.push("/(tabs)/register")}
-              style={styles.cta}
-              testID="go-register-btn"
-            >
-              <Text style={styles.ctaText}>Register Now</Text>
-            </Pressable>
-          </View>
+
+            <View style={styles.card} testID="no-pass">
+              <View style={styles.iconHero}>
+                <MaterialIcon name="ticket-confirmation-outline" size={34} color={colors.brandTertiary} />
+              </View>
+              <Text style={styles.cardTitle}>{notice ? "Pass Removed" : "New Here?"}</Text>
+              <Text style={styles.cardSub}>
+                {notice ?? "Register with your college admission number and your pass will appear here automatically."}
+              </Text>
+              <Pressable
+                onPress={() => router.push("/(tabs)/register")}
+                style={styles.outlineCta}
+                testID="go-register-btn"
+              >
+                <Text style={styles.outlineCtaText}>Register Now</Text>
+              </Pressable>
+            </View>
+          </>
         )}
 
-        {!loading && student && <PassCard student={student} />}
+        {!loading && student && (
+          <>
+            <PassCard student={student} />
+            <Pressable onPress={forgetPass} style={styles.textBtn} testID="forget-pass-btn">
+              <MaterialIcon name="account-switch-outline" size={16} color={colors.muted} />
+              <Text style={styles.textBtnText}>Not you? Look up another pass</Text>
+            </Pressable>
+          </>
+        )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -95,6 +181,17 @@ export default function PassesScreen() {
 function PassCard({ student }: { student: Student }) {
   return (
     <View style={styles.passCard} testID="pass-card">
+      <View style={styles.posterWrap}>
+        <Image source={POSTER} style={styles.poster} contentFit="cover" testID="pass-poster" />
+        <LinearGradient
+          colors={["rgba(28,37,65,0)", "rgba(28,37,65,0)", "rgba(28,37,65,0.6)", colors.surfaceSecondary]}
+          style={styles.posterScrim}
+        />
+        <View style={styles.posterBadge}>
+          <MaterialIcon name="ticket-confirmation" size={14} color={colors.onBrandTertiary} />
+          <Text style={styles.posterBadgeText}>ENTRY PASS</Text>
+        </View>
+      </View>
       <View style={styles.passTop}>
         <View>
           <Text style={styles.passBrand}>TAAL TARANG</Text>
@@ -192,6 +289,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   ctaText: { color: colors.onBrandPrimary, fontSize: 16, fontWeight: "800" },
+  outlineCta: {
+    borderWidth: 1,
+    borderColor: colors.brandTertiary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+  },
+  outlineCtaText: { color: colors.brandTertiary, fontSize: 15, fontWeight: "800" },
+  input: {
+    backgroundColor: colors.surfaceTertiary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: Platform.OS === "ios" ? 14 : 10,
+    color: colors.onSurface,
+    fontSize: 16,
+    minHeight: 50,
+    textAlign: "center",
+    letterSpacing: 1,
+  },
+  errorRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  errorText: { color: colors.error, fontSize: 13, fontWeight: "600", flex: 1 },
+  textBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: spacing.md },
+  textBtnText: { color: colors.muted, fontSize: 13, fontWeight: "600" },
 
   // Pass card
   passCard: {
@@ -201,7 +323,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderStrong,
     gap: spacing.md,
+    overflow: "hidden",
   },
+  posterWrap: {
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.lg,
+    width: "auto",
+    aspectRatio: 1024 / 923,
+    backgroundColor: colors.surfaceTertiary,
+  },
+  poster: { width: "100%", height: "100%" },
+  posterScrim: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+  posterBadge: {
+    position: "absolute",
+    top: spacing.md,
+    left: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.brandTertiary,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  posterBadgeText: { color: colors.onBrandTertiary, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
   passTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   passBrand: { color: colors.brandTertiary, fontSize: 11, fontWeight: "800", letterSpacing: 2 },
   passBrand2: { color: colors.onSurface, fontSize: 18, fontWeight: "900", letterSpacing: 1 },
