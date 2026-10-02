@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, TextInput, Pressable, ActivityIndicator,
-  ScrollView, Platform, KeyboardAvoidingView, RefreshControl, Linking,
+  ScrollView, Platform, KeyboardAvoidingView, RefreshControl,
 } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,7 +15,7 @@ import { colors, spacing, radius } from "@/src/theme";
 import {
   adminLogin, adminListStudents, adminDeleteStudent, Student, StudentType,
   adminListAdmissions, adminAddAdmissions, adminDeleteAdmission, AdmissionEntry,
-  adminExportUrl, adminFetchExportCsv,
+  adminFetchExportCsv,
 } from "@/src/api";
 import StudentDetailSheet from "@/src/components/StudentDetailSheet";
 
@@ -51,7 +51,14 @@ export default function AdminScreen() {
     setExporting(true);
     try {
       if (Platform.OS === "web") {
-        await Linking.openURL(adminExportUrl(type));
+        // Admin endpoints need the auth header, so download via fetch + blob link.
+        const csvText = await adminFetchExportCsv(type);
+        const url = URL.createObjectURL(new Blob(["\ufeff" + csvText], { type: "text/csv;charset=utf-8" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `taal-tarang-students${type ? `-${type.toLowerCase()}` : ""}.csv`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       } else {
         const csvText = await adminFetchExportCsv(type);
         const file = new File(Paths.cache, `taal-tarang-students${type ? `-${type.toLowerCase()}` : ""}.csv`);
